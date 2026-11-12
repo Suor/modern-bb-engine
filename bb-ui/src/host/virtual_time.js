@@ -1,16 +1,18 @@
-// Injected first into a headless page (HostConfig::headless), before page_work.js.
+// Injected into a headless page (HostConfig::headless), after page_work.js.
 //
 // The page's clock follows the game's frames instead of the wall clock: a headless run
 // steps frames as fast as it can, so timers and animations on real time would run
 // slower than the game by however fast that is, and differently run to run. Until the
 // host first calls `__bbClock(gameMs)` everything runs on the wall clock (the page
-// loads, the menu boots). From then on `performance.now()`, `Date.now()`, timers and
+// loads, the menu boots). From then on `performance.now()`, `Date`, timers and
 // animation frames run only in `__bbClock` calls, each advancing the clock to the
 // game's time: the timers due by then run in due order (one set meanwhile waits for
 // the next call, as Coherent ran a frame's timers), then the animation frames asked
 // for before the call, with the call's time. CSS animations and transitions stay on
-// Chromium's clock. `__bbClock` returns the game time of the next timer, the call's own
-// if animation frames wait, or -1.
+// Chromium's clock. `__bbClock` returns `[next, pictures]`: the game time of the next
+// timer (the call's own if animation frames wait, -1 if none), and how many pictures
+// the page asked for haven't loaded yet (`__bbPictures()` too): their loads take real
+// time, so a host that waits for them keeps the frame they land in the same run to run.
 (function () {
 	'use strict';
 
@@ -149,9 +151,25 @@
 	performance.now = function now() {
 		return clock();
 	};
-	Date.now = function now() {
+	// `new Date()` too: Velocity times its animations by it.
+	var NativeDate = Date;
+	function dateNow() {
 		return virtual ? Math.round(clock() + dateOffset) : nativeDateNow();
-	};
+	}
+	function VirtualDate() {
+		if (!(this instanceof VirtualDate)) {
+			return new NativeDate(dateNow()).toString();
+		}
+		if (arguments.length === 0) {
+			return new NativeDate(dateNow());
+		}
+		return new (Function.prototype.bind.apply(NativeDate, [null].concat(slice.call(arguments))))();
+	}
+	VirtualDate.prototype = NativeDate.prototype;
+	VirtualDate.now = dateNow;
+	VirtualDate.parse = NativeDate.parse;
+	VirtualDate.UTC = NativeDate.UTC;
+	window.Date = VirtualDate;
 
 	// From the wall clock to the game's: what was armed natively is taken over.
 	function goVirtual(gameMs) {
@@ -183,6 +201,58 @@
 		});
 		return next;
 	}
+
+	// Pictures asked for (`src` set) whose load or error event hasn't run; one complete
+	// for 100 ms of real time without its event is let go (one may fire none).
+	var pictures = new Map();
+	function settled(e) {
+		pictures.delete(e.target);
+	}
+	function asked(image) {
+		pictures.set(image, null);
+		image.addEventListener('load', settled);
+		image.addEventListener('error', settled);
+	}
+	var src = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+	Object.defineProperty(HTMLImageElement.prototype, 'src', {
+		configurable: true,
+		enumerable: src.enumerable,
+		get: src.get,
+		set: function (value) {
+			src.set.call(this, value);
+			asked(this);
+		}
+	});
+	var setAttribute = Element.prototype.setAttribute;
+	Element.prototype.setAttribute = function (name, value) {
+		setAttribute.call(this, name, value);
+		if (this instanceof HTMLImageElement && String(name).toLowerCase() === 'src') {
+			asked(this);
+		}
+	};
+	function loadingPictures() {
+		var wall = nativePerformanceNow();
+		pictures.forEach(function (completeSince, image) {
+			if (!image.complete) {
+				return;
+			}
+			if (completeSince === null) {
+				pictures.set(image, wall);
+			} else if (wall - completeSince > 100) {
+				pictures.delete(image);
+			}
+		});
+		return pictures.size;
+	}
+	Object.defineProperty(window, '__bbPictures', { value: loadingPictures, enumerable: false });
+
+	// For diagnostics: what waits on the clock.
+	Object.defineProperty(window, '__bbClockState', {
+		value: function () {
+			return { virtual: virtual, now: now, timers: timers.size, frames: frames.size, next: nextDue() };
+		},
+		enumerable: false
+	});
 
 	Object.defineProperty(window, '__bbClock', {
 		value: function (gameMs) {
@@ -219,11 +289,9 @@
 					runTask(function () { frame.callback(target); });
 				}
 			});
-			if (frames.size > 0) {
-				return gameMs;
-			}
 			var next = nextDue();
-			return next === Infinity ? -1 : gameBase + (next - base);
+			next = frames.size > 0 ? gameMs : next === Infinity ? -1 : gameBase + (next - base);
+			return [next, loadingPictures()];
 		},
 		enumerable: false
 	});
