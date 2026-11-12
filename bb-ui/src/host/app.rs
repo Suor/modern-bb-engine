@@ -172,6 +172,8 @@ wrap_browser_process_handler! {
 		opening: Arc<Mutex<Option<Opening>>>,
 		// The bridge's endpoint (`bridge_wire`), for the renderer's command line only.
 		bridge: Option<String>,
+		// The renderer's page runs on the game's clock (`virtual_time.js`).
+		virtual_time: bool,
 	}
 
 	impl BrowserProcessHandler {
@@ -180,6 +182,9 @@ wrap_browser_process_handler! {
 			let kind = CefString::from(&command_line.switch_value(Some(&"type".into()))).to_string();
 			if kind == "renderer" {
 				command_line.append_switch_with_value(Some(&bridge_client::SWITCH.into()), Some(&bridge.as_str().into()));
+				if self.virtual_time {
+					command_line.append_switch(Some(&super::renderer::VIRTUAL_TIME_SWITCH.into()));
+				}
 			}
 		}
 
@@ -208,6 +213,7 @@ wrap_app! {
 		ozone: Option<&'static str>,
 		// The paint sink's switches (`PageSink::browser_switches`).
 		sink_switches: Vec<(&'static str, String)>,
+		virtual_time: bool,
 	}
 
 	impl App {
@@ -232,7 +238,11 @@ wrap_app! {
 			}
 			// What the paints need to reach the game's page (Windows: the GPU adapter).
 			for (name, value) in &self.sink_switches {
-				command_line.append_switch_with_value(Some(&(*name).into()), Some(&value.as_str().into()));
+				if value.is_empty() {
+					command_line.append_switch(Some(&(*name).into()));
+				} else {
+					command_line.append_switch_with_value(Some(&(*name).into()), Some(&value.as_str().into()));
+				}
 			}
 			// macOS: Chromium keeps its cookie key in the user's keychain; the page needs no
 			// secrets, so it stays out of it.
@@ -284,7 +294,7 @@ wrap_app! {
 		}
 
 		fn browser_process_handler(&self) -> Option<BrowserProcessHandler> {
-			Some(BrowserReady::new(self.opening.clone(), self.bridge.clone()))
+			Some(BrowserReady::new(self.opening.clone(), self.bridge.clone(), self.virtual_time))
 		}
 
 		fn render_process_handler(&self) -> Option<RenderProcessHandler> {
@@ -297,15 +307,17 @@ wrap_app! {
 /// context is initialized. `devtools_port` for the browser process when DevTools is
 /// served, `ozone` its display connection's platform (its children don't take switches
 /// from it). `bridge` is the bridge's endpoint, which it hands the renderer, and
-/// `sink_switches` what the paint sink asks of Chromium (`PageSink::browser_switches`).
+/// `sink_switches` what the paint sink asks of Chromium (`PageSink::browser_switches`),
+/// `virtual_time` whether the page runs on the game's clock (`virtual_time.js`).
 pub(super) fn host_app(
 	opening: Option<Opening>,
 	devtools_port: Option<u16>,
 	bridge: Option<String>,
 	ozone: Option<&'static str>,
 	sink_switches: Vec<(&'static str, String)>,
+	virtual_time: bool,
 ) -> App {
-	HostApp::new(Arc::new(Mutex::new(opening)), devtools_port, bridge, ozone, sink_switches)
+	HostApp::new(Arc::new(Mutex::new(opening)), devtools_port, bridge, ozone, sink_switches, virtual_time)
 }
 
 #[cfg(test)]

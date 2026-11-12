@@ -69,6 +69,8 @@ pub(super) struct Shared {
 	pub browser: Mutex<Option<Browser>>,
 	/// Where the page's paints go (the owner's copy of the frame, on the GPU).
 	pub sink: Arc<dyn PageSink>,
+	/// The frame in memory, headless ([`HostConfig::headless`](super::HostConfig)).
+	pub memory: Option<Arc<super::paint_sink::MemoryFrame>>,
 	/// The latest frame's size and paint count, and the alpha read back from it.
 	pub frame: Mutex<PaintState>,
 	/// Why the last paint that couldn't be taken couldn't.
@@ -188,12 +190,32 @@ wrap_render_handler! {
 		fn on_paint(
 			&self,
 			_browser: Option<&mut Browser>,
-			_type_: PaintElementType,
-			_dirty_rects: Option<&[Rect]>,
-			_buffer: *const u8,
-			_width: ::std::os::raw::c_int,
-			_height: ::std::os::raw::c_int,
+			type_: PaintElementType,
+			dirty_rects: Option<&[Rect]>,
+			buffer: *const u8,
+			width: ::std::os::raw::c_int,
+			height: ::std::os::raw::c_int,
 		) {
+			if let Some(memory) = &self.shared.memory {
+				let (Ok(width), Ok(height)) = (u32::try_from(width), u32::try_from(height)) else { return };
+				if type_ != PaintElementType::VIEW || buffer.is_null() || width == 0 || height == 0 {
+					return;
+				}
+				let mut damage = Damage::default();
+				for r in dirty_rects.unwrap_or_default() {
+					if let Some(rect) = PaintRect::clipped(r.x, r.y, r.width, r.height, width, height) {
+						damage.add(rect);
+					}
+				}
+				if damage.rects().is_empty() {
+					damage.add(PaintRect::whole(width, height));
+				}
+				// SAFETY: CEF's BGRA view of `width` × `height`, valid during this call.
+				let pixels = unsafe { std::slice::from_raw_parts(buffer, (width * height * 4) as usize) };
+				memory.copy(pixels, width, height, damage.rects());
+				self.shared.frame.lock().unwrap_or_else(|e| e.into_inner()).painted(width, height, damage.rects());
+				return;
+			}
 			// Only if Chromium fell back to compositing in software (its GPU process
 			// failed): there is no software path to take this, so say why nothing shows.
 			let e = "Chromium painted the page in memory, not on the GPU (its GPU process failed?); \

@@ -123,3 +123,56 @@ pub trait PageSink: Send + Sync {
 		Vec::new()
 	}
 }
+
+/// The page's frame in memory, for a host without a display or GPU
+/// ([`HostConfig::headless`](super::HostConfig)): Chromium's headless platform composites
+/// in software and hands each paint over as pixels (`OnPaint`), copied here as they come.
+#[derive(Default)]
+pub(super) struct MemoryFrame {
+	/// Width, height and BGRA pixels, premultiplied, rows top to bottom.
+	frame: std::sync::Mutex<(u32, u32, Vec<u8>)>,
+}
+
+impl MemoryFrame {
+	/// Take a paint: `pixels` is the whole `width` × `height` view, `dirty` what changed.
+	pub fn copy(&self, pixels: &[u8], width: u32, height: u32, dirty: &[PaintRect]) {
+		let mut frame = self.frame.lock().unwrap_or_else(|e| e.into_inner());
+		let stride = width as usize * 4;
+		if (frame.0, frame.1) != (width, height) {
+			*frame = (width, height, pixels.to_vec());
+			return;
+		}
+		for r in dirty {
+			for y in r.y..r.y + r.height {
+				let start = y as usize * stride + r.x as usize * 4;
+				let end = start + r.width as usize * 4;
+				frame.2[start..end].copy_from_slice(&pixels[start..end]);
+			}
+		}
+	}
+}
+
+impl PageSink for MemoryFrame {
+	fn paint(&self, _paint: &SharedPaint) -> Result<(), String> {
+		Err("a headless page is painted in memory, not on the GPU".into())
+	}
+
+	fn read(&self, region: PaintRect) -> Result<Option<(PaintRect, Vec<u8>)>, String> {
+		let frame = self.frame.lock().unwrap_or_else(|e| e.into_inner());
+		let (width, height, pixels) = &*frame;
+		let Some(r) = PaintRect::clipped(region.x as i32, region.y as i32, region.width as i32, region.height as i32, *width, *height) else {
+			return Ok(None);
+		};
+		let mut out = Vec::with_capacity((r.width * r.height * 4) as usize);
+		for y in r.y..r.y + r.height {
+			let start = (y * width + r.x) as usize * 4;
+			out.extend_from_slice(&pixels[start..start + r.width as usize * 4]);
+		}
+		Ok(Some((r, out)))
+	}
+
+	/// No GPU at all: Chromium composites and rasterizes in software.
+	fn browser_switches(&self) -> Vec<(&'static str, String)> {
+		vec![("disable-gpu", String::new()), ("disable-gpu-compositing", String::new())]
+	}
+}

@@ -24,6 +24,8 @@ pub(super) struct Opening {
 	pub frame_rate: i32,
 	/// The window the page's dialogs belong to ([`HostConfig::parent_window`](super::HostConfig)).
 	pub parent_window: Option<isize>,
+	/// Paints as GPU buffers; else in memory ([`HostConfig::headless`](super::HostConfig)).
+	pub gpu_paints: bool,
 }
 
 impl Opening {
@@ -43,8 +45,8 @@ impl Opening {
 		}
 		let mut window_info = WindowInfo::default().set_as_windowless(parent_window(self.parent_window));
 		window_info.external_begin_frame_enabled = self.external_frames.into();
-		// Paints arrive as GPU buffers (`OnAcceleratedPaint`), never as pixels in memory.
-		window_info.shared_texture_enabled = 1;
+		// Paints arrive as GPU buffers (`OnAcceleratedPaint`), or headless as pixels in memory.
+		window_info.shared_texture_enabled = self.gpu_paints.into();
 		// The generic font families are the original's, Windows' defaults (probed,
 		// `probes/font_families.js`): `monospace` is Courier New there, where Linux's
 		// default is DejaVu Sans Mono (a pixel taller a line: Modern Hooks' popup, and

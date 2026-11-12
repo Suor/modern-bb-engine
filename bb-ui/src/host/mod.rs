@@ -203,7 +203,7 @@ pub fn run_subprocess() -> Option<i32> {
 	if CefString::from(&command_line.switch_value(Some(&"type".into()))).to_string() == "renderer" {
 		system_fonts::register();
 	}
-	let mut app = app::host_app(None, None, None, None, Vec::new());
+	let mut app = app::host_app(None, None, None, None, Vec::new(), false);
 	Some(execute_process(
 		Some(args.as_main_args()),
 		Some(&mut app),
@@ -276,6 +276,11 @@ pub struct HostConfig {
 	/// which is `WindowInfo::parent_window` for a windowless browser). Ignored
 	/// elsewhere: no dialog bb opens there goes through CEF.
 	pub parent_window: Option<isize>,
+	/// No display and no GPU: Chromium's headless platform composites the page in
+	/// software and paints it into memory, where `sink` and `display` are ignored. For
+	/// scripted runs (mod tests) on a machine without a desktop session. The page's clock
+	/// then follows the game's once the host first calls `__bbClock` (`virtual_time.js`).
+	pub headless: bool,
 }
 
 impl Default for HostConfig {
@@ -298,6 +303,7 @@ impl Default for HostConfig {
 			sink: None,
 			display: None,
 			parent_window: None,
+			headless: false,
 		}
 	}
 }
@@ -358,13 +364,18 @@ impl UiHost {
 	/// [`wait_open`](Self::wait_open) waits for the page's browser.
 	pub fn start(files: Arc<UiFiles>, config: HostConfig) -> Result<UiHost, String> {
 		let _ = api_hash(sys::CEF_API_VERSION_LAST, 0);
-		let sink = config
-			.sink
-			.clone()
-			.ok_or("no paint sink: the page is painted on the GPU, and its owner keeps the frame (HostConfig::sink)")?;
-		let display = match config.display {
-			Some(display) => display,
-			None => Display::from_env()?,
+		let memory = config.headless.then(|| Arc::new(paint_sink::MemoryFrame::default()));
+		let sink: Arc<dyn PageSink> = match &memory {
+			Some(memory) => memory.clone(),
+			None => config
+				.sink
+				.clone()
+				.ok_or("no paint sink: the page is painted on the GPU, and its owner keeps the frame (HostConfig::sink)")?,
+		};
+		let ozone = match (config.headless, config.display) {
+			(true, _) => Some("headless"),
+			(false, Some(display)) => display.ozone(),
+			(false, None) => Display::from_env()?.ozone(),
 		};
 		std::fs::create_dir_all(&config.cache_dir).map_err(|e| format!("cache dir: {e}"))?;
 		// Bound before CEF starts: the renderer is told where it is as it launches.
@@ -375,7 +386,8 @@ impl UiHost {
 		let shared = Arc::new(Shared {
 			events: Mutex::new(events_tx),
 			browser: Mutex::new(None),
-			sink,
+			sink: sink.clone(),
+			memory,
 			frame: Mutex::new(Default::default()),
 			paint_error: Mutex::new(None),
 			painted_in_memory: Default::default(),
@@ -396,12 +408,13 @@ impl UiHost {
 			external_frames: config.frames.external(),
 			frame_rate: config.frames.clock_rate(),
 			parent_window: config.parent_window,
+			gpu_paints: !config.headless,
 		};
-		let (devtools_port, ozone) = (config.devtools_port, display.ozone());
-		let switches = config.sink.as_ref().map(|sink| sink.browser_switches()).unwrap_or_default();
+		let (devtools_port, headless) = (config.devtools_port, config.headless);
+		let switches = sink.browser_switches();
 		let (cache_dir, cef_log) = (config.cache_dir.clone(), config.cef_log.clone());
 		let make = move || {
-			let app = app::host_app(Some(opening), devtools_port, Some(bridge_switch), ozone, switches);
+			let app = app::host_app(Some(opening), devtools_port, Some(bridge_switch), ozone, switches, headless);
 			let path = |p: PathBuf| CefString::from(p.to_string_lossy().as_ref());
 			let cef_dir = cef_dir();
 			let settings = Settings {

@@ -29,6 +29,17 @@ const SCRIPTS: [(&str, &str); 9] = [
 	("bb://velocity_dummies.js", include_str!("velocity_dummies.js")),
 ];
 
+/// The page's clock on the game's frames, for a headless page (installed after
+/// page_work.js, so what it runs is the game's, not the page's own tasks).
+const VIRTUAL_TIME: &str = include_str!("virtual_time.js");
+
+/// The renderer's switch that installs [`VIRTUAL_TIME`] ([`HostConfig::headless`](super::HostConfig)).
+pub(super) const VIRTUAL_TIME_SWITCH: &str = "bb-virtual-time";
+
+fn virtual_time() -> bool {
+	command_line_get_global().is_some_and(|c| c.has_switch(Some(&VIRTUAL_TIME_SWITCH.into())) == 1)
+}
+
 /// `window.ModernEngine`: what mods' JS detects this engine by, as their Squirrel does by
 /// `::ModernEngine` (`docs/modding.md`). It has no version: mods' JS compares the
 /// engine's through Modern Hooks (`Hooks.hasModVersion("mod_modern_engine", ...)`). The
@@ -99,6 +110,14 @@ wrap_render_process_handler! {
 			let marker = modern_engine_script();
 			context.eval(Some(&marker.as_str().into()), Some(&"bb://modern_engine.js".into()), 1, Some(&mut retval), Some(&mut exception));
 			for (url, script) in SCRIPTS {
+				if url == "bb://bootstrap.js" && virtual_time() {
+					let (mut retval, mut exception) = (None, None);
+					let url = "bb://virtual_time.js";
+					context.eval(Some(&VIRTUAL_TIME.into()), Some(&url.into()), 1, Some(&mut retval), Some(&mut exception));
+					if let Some(exception) = exception {
+						eprintln!("bb-ui: {url} failed: {}", CefString::from(&exception.message()));
+					}
+				}
 				let mut retval = None;
 				let mut exception = None;
 				context.eval(Some(&script.into()), Some(&url.into()), 1, Some(&mut retval), Some(&mut exception));
