@@ -12,7 +12,8 @@
 //! * a float: truncated toward zero, as `cvttss2si` of the float as an `f32` (so a value
 //!   outside the 32-bit range, or NaN, is `-2147483648`);
 //! * anything else: the object's address shifted right by 3 (null: 0). Only identity is
-//!   observable there, which our addresses give too.
+//!   observable there, so ours is the object's serial (`HashObj`, a user pointer's address shifted):
+//!   unlike an address, the same run to run, and so are the strings scripts make of it.
 
 use crate::function::SqArg;
 use crate::{SQ_OK, SQVM, SqObject};
@@ -42,7 +43,7 @@ impl SqArg for ScriptHash {
 			SqObject::Bool(b) => b as i64,
 			SqObject::Float(f) => cvttss2si(f as f32),
 			SqObject::Null => 0,
-			other => other.identity() >> 3,
+			_ => (unsafe { squirrel_sys::sq_gethash(vm.as_ptr(), idx) }) as i64,
 		};
 		Ok(ScriptHash(hash))
 	}
