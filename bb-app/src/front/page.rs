@@ -16,7 +16,7 @@ const PAGE_WAITING_RATE: i32 = 60;
 const PORTRAITS_BUDGET: std::time::Duration = std::time::Duration::from_millis(2);
 
 pub struct Front {
-	session: UiSession,
+	session: Box<UiSession>,
 	layer: UiLayer,
 	/// Buttons whose press went to the page (bit `1 << id`): their release follows.
 	captured: u32,
@@ -64,7 +64,8 @@ impl Front {
 			..HostConfig::default()
 		};
 		// The page opens and loads while the scripts' preload runs (`boot_menu`).
-		let session = UiSession::open(boot.data_dir, config, Echo::Problems).map_err(crate::requirements::page_error)?;
+		let mut session = Box::new(UiSession::open(boot.data_dir, config, Echo::Problems).map_err(crate::requirements::page_error)?);
+		super::tales::register(&mut session, page.clone());
 		// Before the scripts boot to the menu.
 		boot.store.attach(session.engine());
 		// The page's links (`openURL`: mods' pages, the version label) open in the
