@@ -192,6 +192,11 @@ impl UiSession {
 		&self.engine
 	}
 
+	/// The engine, to configure its VM (handlers, natives) before the scripts run.
+	pub fn engine_mut(&mut self) -> &mut GameEngine {
+		&mut self.engine
+	}
+
 	pub fn host(&self) -> &UiHost {
 		self.protocol.transport()
 	}
