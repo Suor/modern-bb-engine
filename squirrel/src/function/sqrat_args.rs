@@ -22,11 +22,6 @@ impl SqArg for Stringified {
 		mask.push('.');
 	}
 	fn from_sq<'a>(vm: &'a SQVM, idx: i64) -> Result<Stringified, String> {
-		// The original's `sq_tostring` gives null an object's shape (verified in the original:
-		// `writeString(null)` writes this), where our VM's gives "null".
-		if vm.get_type(idx) == crate::SqObjectType::Null {
-			return Ok(Stringified(b"(null : 0x00000000)".to_vec()));
-		}
 		// `sq_tostring` pushes the text (a negative index is read before the push).
 		if unsafe { squirrel_sys::sq_tostring(vm.as_ptr(), idx) } != SQ_OK {
 			unsafe { squirrel_sys::sq_reseterror(vm.as_ptr()) };

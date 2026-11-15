@@ -1,0 +1,6 @@
+# captured 2026-11-15 from Battle Brothers 1.5.2.3 (vanilla + zzz_bbtales_runner.zip)
+PROBE string + null = string x(null : 0x00000000)
+PROBE null + string = string (null : 0x00000000)x
+PROBE length = integer 19
+PROBE in a table key = string (null : 0x00000000)
+PROBE null.tostring() = string ERROR the index 'tostring' does not exist
