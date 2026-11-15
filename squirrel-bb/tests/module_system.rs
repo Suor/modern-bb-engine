@@ -859,6 +859,39 @@ fn a_failing_script_file_is_logged_and_skipped_under_go_on() {
 	.expect("the error reaches the caller");
 }
 
+// As the original (probed 2026-11-15): `inherit` stamps nothing; once a file has run, the
+// table under its basename gets `ClassName` and `ClassNameHash`, whoever loaded the file.
+#[test]
+fn only_the_files_own_class_gets_its_name_after_it_ran() {
+	let (mut vm, _modules) = vm_with(&[
+		("scripts/top", "this.top <- { m = { X = 1 }, function create() {} };"),
+		(
+			"scripts/child",
+			r#"
+			::Extra <- this.inherit("scripts/top", { m = {} });
+			this.child <- this.inherit("scripts/top", { m = {} });
+			::Child <- this.child;
+			::AtEnd <- this.child.rawin("ClassName");
+			"#,
+		),
+		("lib/inc", "this.inc <- this.inherit(\"scripts/top\", { m = {} }); ::Inc <- this.inc;"),
+	]);
+	vm.run_script(
+		r#"
+		local c = ::new("scripts/child");
+		assert(::AtEnd == false);
+		assert(::Extra.rawin("ClassName") == false && ::Extra.rawin("ClassNameHash") == false);
+		assert(::Child.ClassName == "child" && ::Child.ClassNameHash == ::IO.scriptHashByFilename("scripts/child"));
+		assert(c.ClassName == "child");
+		assert(::inherit("scripts/top", { m = {} }).rawin("ClassName") == false);
+		::include("lib/inc");
+		assert(::Inc.ClassName == "inc");
+		"#,
+		"names",
+	)
+	.expect("names as the original's");
+}
+
 // As the original (probed 2026-11-15): `a .nut` is the script `a `, listed, included and
 // hashed by that name; `a` doesn't find it. Only scripts under `scripts/` have a hash.
 #[test]

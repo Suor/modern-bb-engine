@@ -36,15 +36,8 @@ pub(crate) struct State<S: ScriptSource> {
 	/// Each included file's own scope: the table it ran with as `this`, where its
 	/// file-scope definitions (a base class's literal, its helper functions) live.
 	pub(crate) scopes: HashMap<String, SqStrongRef>,
-	/// Inheritance links: child path → parent path, recorded at `inherit` time so
-	/// `new` can walk the chain to clone every ancestor.
-	pub(crate) parents: HashMap<String, String>,
 	/// `ClassNameHash` → path, the reverse half of the `IO` registry.
 	pub(crate) by_hash: HashMap<i64, String>,
-	/// Paths currently being loaded (a stack, since includes nest). The top is the
-	/// script whose top-level code is running, which `inherit` uses as the child's
-	/// own path for `ClassNameHash` stamping.
-	pub(crate) load_stack: Vec<String>,
 	/// Instances made so far per class path: `new` numbers each class's instances
 	/// from 1 in `InstanceName` ("brave_trait@3"), as the original does.
 	pub(crate) instance_counts: HashMap<String, u64>,
@@ -72,9 +65,7 @@ impl<S: ScriptSource> State<S> {
 			included: HashSet::new(),
 			failed: HashSet::new(),
 			scopes: HashMap::new(),
-			parents: HashMap::new(),
 			by_hash: HashMap::new(),
-			load_stack: Vec::new(),
 			instance_counts: HashMap::new(),
 			fonts: Vec::new(),
 			class_natives: None,

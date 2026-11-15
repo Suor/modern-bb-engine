@@ -16,9 +16,8 @@ use crate::state::{SharedState, State};
 
 /// Load, compile and run the script at `path` exactly once.
 ///
-/// The path is marked loaded (and pushed as the current load path) *before* the
-/// script runs, so a class script's top-level `inherit` sees its own path and a
-/// circular include cannot loop. No state borrow is held while the script runs,
+/// The path is marked loaded *before* the script runs, so a circular include
+/// cannot loop. No state borrow is held while the script runs,
 /// since it re-enters the module system.
 pub(crate) fn include<S: ScriptSource>(
 	vm: &SQVM,
@@ -44,11 +43,7 @@ pub(crate) fn include<S: ScriptSource>(
 			.ok_or_else(|| ScriptError::NotFound(norm.clone()))?,
 	};
 
-	{
-		let mut st = state.borrow_mut();
-		st.included.insert(norm.clone());
-		st.load_stack.push(norm.clone());
-	}
+	state.borrow_mut().included.insert(norm.clone());
 
 	// Source is compiled, bytecode loaded; either way the closure runs in a scope of
 	// its own: a fresh, empty table without a delegate as `this` (probed: so a file's
@@ -97,8 +92,6 @@ pub(crate) fn include<S: ScriptSource>(
 		Err(e) => Err((true, e)),
 	};
 
-	state.borrow_mut().load_stack.pop();
-
 	match result {
 		// As the original's (probed 2026-11-15): the failure is logged, the file stays
 		// loaded, its partial definitions stay, and the caller goes on, its `try` unaware.
@@ -119,7 +112,7 @@ pub(crate) fn include<S: ScriptSource>(
 		Err((_, e)) => return Err(ScriptError::Runtime(e)),
 		Ok(()) => {}
 	}
-	// A base class is stamped as soon as its script has run (see `adopt_base`).
+	// Its class is stamped as soon as its script has run (see `adopt_base`).
 	adopt_base(vm, state, &norm);
 	Ok(())
 }
@@ -160,7 +153,6 @@ impl<S: ScriptSource> crate::memory_report::ReportMemory for ModuleSystem<S> {
 		report.add("module system", "class prototypes", st.prototypes.len(), map_bytes(&st.prototypes) + keys(&st.prototypes));
 		report.add("module system", "script scopes", st.scopes.len(), map_bytes(&st.scopes) + keys(&st.scopes));
 		report.add("module system", "scripts included", st.included.len(), set_bytes(&st.included));
-		report.add("module system", "class parents", st.parents.len(), map_bytes(&st.parents));
 		report.add("module system", "class name hashes", st.by_hash.len(), map_bytes(&st.by_hash));
 		report.add("module system", "instance counts", st.instance_counts.len(), map_bytes(&st.instance_counts));
 	}
@@ -320,7 +312,6 @@ impl<S: ScriptSource> ModuleSystem<S> {
 	pub fn clear(&self) {
 		let mut st = self.state.borrow_mut();
 		st.prototypes.clear();
-		st.parents.clear();
 		st.by_hash.clear();
 		st.included.clear();
 		st.failed.clear();
