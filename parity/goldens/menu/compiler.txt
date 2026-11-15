@@ -1,0 +1,8 @@
+# captured 2026-11-15 from Battle Brothers 1.5.2.3 (vanilla + zzz_bbtales_runner.zip, parity_menu_script_load_errors.zip)
+PROBE "a" in tb == false = bool false
+PROBE "b" in tb == false = bool false
+PROBE "a" in tb && false = bool false
+PROBE !("b" in tb) == true = bool true
+PROBE c instanceof C == false = string ERROR cannot apply instanceof between a bool and a instance
+PROBE switch on a local = string two, x after: 2
+PROBE y += 1 || 0 = integer 1
