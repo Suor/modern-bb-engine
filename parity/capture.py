@@ -86,8 +86,10 @@ def with_log_windows(lines: list[str], out_dir: Path) -> list[str]:
     return out
 
 
-def run_group(mode: str, seed: str | None, source: str, out_dir: Path, js: Path | None = None) -> list[str]:
-    """Run one launch in the original; returns the PROBE log lines in order."""
+def run_group(mode: str, seed: str | None, source: str, out_dir: Path, js: Path | None = None,
+              mods: dict[str, Path] | None = None) -> list[str]:
+    """Run one launch in the original; returns the PROBE log lines in order. `mods` (archive
+    name: dir) are mounted as mods of those names (the runner's `--mod NAME=DIR`)."""
     with tempfile.NamedTemporaryFile("w", suffix=".nut", delete=False) as f:
         f.write(source)
         probe_file = f.name
@@ -96,6 +98,8 @@ def run_group(mode: str, seed: str | None, source: str, out_dir: Path, js: Path 
         cmd += ["--seed", seed]
     if js is not None:
         cmd += ["--js", str(js)]
+    for name, files in (mods or {}).items():
+        cmd += ["--mod", f"{name}={files}"]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)
     finally:
@@ -145,7 +149,8 @@ def main():
             continue
         out_dir = Path(tempfile.mkdtemp(prefix=f"parity-{mode}-"))
         print(f"== {mode} (seed={seed}): {len(probes)} probes -> {out_dir}", flush=True)
-        sections = split_sections(run_group(mode, seed, combined_source(probes), out_dir))
+        mods = {p.mod_name(): p.files for p in probes if p.files}
+        sections = split_sections(run_group(mode, seed, combined_source(probes), out_dir, mods=mods))
         for p in probes:
             if wanted and p.name not in wanted:
                 continue

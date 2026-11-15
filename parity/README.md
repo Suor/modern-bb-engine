@@ -7,6 +7,7 @@ same script in our engine and compares the two line by line.
 
 ```
 probes/<group>/<name>.nut    the probes
+probes/<group>/<name>/       a probe's own files, if it needs any
 ui_payloads/<name>.nut, .js  what the scripts send the UI along a walk of the game
 goldens/<group>/<name>.txt   their output in the original
 divergences.txt              known, accepted differences
@@ -76,6 +77,13 @@ p("unit add again", @() e.addSprite("bb_probe_dup").Saturation);
 A probe that has to watch the game over time sets `::BbProbe.DeferDone = true` and
 calls `::BbProbe.done()` from a scheduled event, as with the probe harness; the
 runner here then runs frames until it does. Only a group's last probe can defer.
+
+A probe that needs script files of its own (a file that doesn't compile, a mod's script
+outside `scripts/`) keeps them in the dir beside it, named as it: `menu/script_load_errors/`
+holds `bb_probe/bad_syntax.nut` and so on. Both engines mount that dir as a mod archive,
+`parity_<group>_<name>.zip` (`menu/script_load_errors` is `parity_menu_script_load_errors.zip`):
+`parity.rs` zips it, `capture.py` hands it to the runner as `--mod <archive name>=<dir>`. Its
+files under `scripts/` run in the boot's sweep, as any mod's.
 
 A probe with a `// compare: subset` line is a coverage check: only the original's lines
 must appear in ours, and our extras are fine. `menu/natives` and `campaign/natives` list

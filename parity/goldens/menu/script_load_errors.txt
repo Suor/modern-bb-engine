@@ -1,0 +1,13 @@
+# captured 2026-11-15 from Battle Brothers 1.5.2.3 (vanilla + zzz_bbtales_runner.zip, parity_menu_script_load_errors.zip)
+PROBE include bad syntax log = 1 rows
+PROBE include bad syntax log 1 = error Script Failed to load script file "bb_probe/bad_syntax.nut". Reason: "expression expected" line:2 column:28.
+PROBE include bad syntax = string caught=none r=null
+PROBE ran = bool false
+PROBE include bad syntax again log = 0 rows
+PROBE include bad syntax again = string caught=none r=null
+PROBE hash outside = null null
+PROBE include outside log = 0 rows
+PROBE include outside = string caught=none r=null 1
+PROBE hash outside once included = null null
+PROBE inside ran = integer 1
+PROBE hash inside = integer 1696357321

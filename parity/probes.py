@@ -15,18 +15,27 @@ class Probe:
     mode: str  # "menu" or "campaign"
     seed: str | None
     body: str
+    files: Path | None = None  # its own files (a dir beside it, named as it), mounted as mod_name()
+
+    def mod_name(self) -> str:
+        """The archive its files are mounted as, in both engines."""
+        return "parity_" + self.name.replace("/", "_")
 
 
 def load_probes(root: Path, prefix: str = "") -> list[Probe]:
     """The probes under root, named by path (prefix + relative path, no extension)."""
     probes = []
     for path in sorted(root.rglob("*.nut")):
+        # A file of a probe's own (under the dir beside it), not a probe.
+        if any(d.with_suffix(".nut").is_file() for d in path.parents if d != root and root in d.parents):
+            continue
         body = path.read_text()
         m = re.search(r"^// mode: (menu|campaign)(?: seed=(\S+))?\s*$", body, re.M)
         if not m:
             raise SystemExit(f"{path}: missing '// mode: menu|campaign [seed=S]' header")
         name = prefix + path.relative_to(root).with_suffix("").as_posix()
-        probes.append(Probe(name, m.group(1), m.group(2), body))
+        files = path.with_suffix("")
+        probes.append(Probe(name, m.group(1), m.group(2), body, files if files.is_dir() else None))
     return probes
 
 

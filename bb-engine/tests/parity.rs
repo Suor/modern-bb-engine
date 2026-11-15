@@ -36,12 +36,22 @@ struct Probe {
 	/// `// compare: subset`: only the original's lines must be in ours.
 	subset: bool,
 	body: String,
+	/// Its own files (the dir beside it, named as it), mounted as the mod [`Probe::mod_name`].
+	files: Option<PathBuf>,
+}
+
+impl Probe {
+	/// The archive its files are mounted as, in both engines (`probes.py`'s `mod_name`).
+	fn mod_name(&self) -> String {
+		format!("parity_{}", self.name.replace('/', "_"))
+	}
 }
 
 fn collect(dir: &Path, out: &mut Vec<PathBuf>) {
 	for entry in std::fs::read_dir(dir).unwrap().flatten() {
 		let path = entry.path();
-		if path.is_dir() {
+		// A probe's own files are not probes.
+		if path.is_dir() && !path.with_extension("nut").is_file() {
 			collect(&path, out);
 		} else if path.extension().is_some_and(|e| e == "nut") {
 			out.push(path);
@@ -71,7 +81,8 @@ fn load_probes(root: &Path) -> Vec<Probe> {
 				.with_extension("")
 				.to_string_lossy()
 				.replace('\\', "/");
-			Probe { name, mode, seed, subset, body }
+			let files = Some(path.with_extension("")).filter(|f| f.is_dir());
+			Probe { name, mode, seed, subset, body, files }
 		})
 		.collect();
 	probes.sort_by(|a, b| a.name.cmp(&b.name));
@@ -140,9 +151,37 @@ fn log_windows(rows: &[(String, String, String)]) -> Vec<String> {
 	out
 }
 
+/// A probe's files as the mod archive `name`, as the original mounts a mod's zip.
+fn zip_mod(name: &str, files: &Path) -> PathBuf {
+	let dir = std::env::temp_dir().join(format!("parity-mods-{}", std::process::id()));
+	std::fs::create_dir_all(&dir).unwrap();
+	let out = dir.join(format!("{name}.zip"));
+	let mut zip = zip::ZipWriter::new(std::fs::File::create(&out).unwrap());
+	let mut paths = Vec::new();
+	collect_all(files, &mut paths);
+	paths.sort();
+	for path in paths {
+		let inner = path.strip_prefix(files).unwrap().to_string_lossy().replace('\\', "/");
+		zip.start_file(inner, zip::write::SimpleFileOptions::default()).unwrap();
+		std::io::Write::write_all(&mut zip, &std::fs::read(&path).unwrap()).unwrap();
+	}
+	zip.finish().unwrap();
+	out
+}
+
+fn collect_all(dir: &Path, out: &mut Vec<PathBuf>) {
+	for entry in std::fs::read_dir(dir).unwrap().flatten() {
+		let path = entry.path();
+		if path.is_dir() { collect_all(&path, out) } else { out.push(path) }
+	}
+}
+
 /// Run one (mode, seed) group in our engine; the PROBE lines in order.
 fn run_group(mode: &str, seed: Option<&str>, probes: &[&Probe]) -> Vec<String> {
-	let mut engine = harness::open_install(Path::new(harness::STEAM_DATA_DIR)).expect("open install");
+	let data = Path::new(harness::STEAM_DATA_DIR);
+	let mut archives = harness::data_archives(data).expect("the install's archives");
+	archives.extend(probes.iter().filter_map(|p| p.files.as_ref().map(|f| zip_mod(&p.mod_name(), f))));
+	let mut engine = harness::open_mounted(data, archives, |_| {}).expect("open install");
 	// As the original: a script error is reported and the game goes on.
 	engine.set_script_errors(squirrel_bb::ScriptErrors::GoOn);
 	// The rows come through the tap; the terminal stays quiet.
