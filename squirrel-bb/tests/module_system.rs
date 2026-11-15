@@ -793,3 +793,68 @@ fn a_throwing_create_gives_the_instance_under_go_on() {
 	)
 	.expect("the error reaches the caller");
 }
+
+const HALF: &str = r#"
+this.half <- { m = { X = 1 }, function create() { this.m.X = 2; } };
+::Half <- 1;
+throw "BB_HALF_ERR";
+"#;
+
+// As the original (probed 2026-11-15): a script that is missing or fails to compile or run
+// is logged once, stays loaded with what it defined, and its loader goes on past the caller's
+// `try`; `new` of it gives null, `inherit` an empty parent without a name. `Fail` throws.
+#[test]
+fn a_failing_script_file_is_logged_and_skipped_under_go_on() {
+	let (mut vm, modules) = vm_with(&[
+		("scripts/half", HALF),
+		("lib/bad_syntax", "local x = (;"),
+		("lib/throws", "throw \"BB_THROWS\";"),
+	]);
+	let reported = std::rc::Rc::new(std::cell::Cell::new(0));
+	{
+		let reported = reported.clone();
+		vm.set_runtime_error_handler(move |_| reported.set(reported.get() + 1));
+	}
+	let rows = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+	{
+		let rows = rows.clone();
+		squirrel_bb::html_log::set_tap(Some(Box::new(move |_, tag: &str, text: &[u8]| {
+			let text = String::from_utf8_lossy(text);
+			if ["half", "bad_syntax", "nope"].iter().any(|s| text.contains(s)) {
+				rows.lock().unwrap().push(format!("{tag} {text}"));
+			}
+		})));
+	}
+	modules.set_script_errors(squirrel_bb::ScriptErrors::GoOn);
+	vm.run_script(
+		r#"
+		local caught = null;
+		try { ::include("scripts/half"); ::include("lib/bad_syntax"); ::include("lib/nope"); } catch (e) { caught = e; }
+		assert(caught == null);
+		assert(::Half == 1);
+		assert(::new("scripts/half") == null);
+		local c = ::inherit("scripts/half", { m = {} });
+		assert(c.SuperName == "" && c[""].len() == 0);
+		"#,
+		"go on",
+	)
+	.expect("the loaders go on");
+	squirrel_bb::html_log::set_tap(None);
+	assert_eq!(reported.get(), 1, "the runtime error reported once");
+	assert_eq!(*rows.lock().unwrap(), [
+		"Script Failed to execute script file \"scripts/half.nut\". Reason: \"BB_HALF_ERR\".",
+		"Script Failed to load script file \"lib/bad_syntax.nut\". Reason: \"expression expected\" line:1 column:12.",
+		"Script Failed to load script file \"lib/nope.(nut/cnut)\". Reason: File not found.",
+	]);
+
+	modules.set_script_errors(squirrel_bb::ScriptErrors::Fail);
+	vm.run_script(
+		r#"
+		local caught = null;
+		try { ::include("lib/throws"); } catch (e) { caught = e; }
+		assert(caught == "runtime error: BB_THROWS");
+		"#,
+		"fail",
+	)
+	.expect("the error reaches the caller");
+}

@@ -30,6 +30,9 @@ pub(crate) struct State<S: ScriptSource> {
 	pub(crate) prototypes: HashMap<String, SqStrongRef>,
 	/// Scripts already compiled+run, so `include` runs each at most once.
 	pub(crate) included: HashSet<String>,
+	/// Scripts whose load failed under [`crate::ScriptErrors::GoOn`]: `new` gives null for
+	/// them and `inherit` an empty parent, as the original's.
+	pub(crate) failed: HashSet<String>,
 	/// Each included file's own scope: the table it ran with as `this`, where its
 	/// file-scope definitions (a base class's literal, its helper functions) live.
 	pub(crate) scopes: HashMap<String, SqStrongRef>,
@@ -57,7 +60,7 @@ pub(crate) struct State<S: ScriptSource> {
 	/// Whether an instance's member tables `m` are lazy deep copies (see `class.rs`): on,
 	/// unless `BB_LAZY_MEMBERS=0`.
 	pub(crate) lazy_members: bool,
-	/// What a script error in `create()` does (see [`crate::ScriptErrors`]).
+	/// What a script error in a file's load or `create()` does (see [`crate::ScriptErrors`]).
 	pub(crate) script_errors: crate::ScriptErrors,
 }
 
@@ -67,6 +70,7 @@ impl<S: ScriptSource> State<S> {
 			source,
 			prototypes: HashMap::new(),
 			included: HashSet::new(),
+			failed: HashSet::new(),
 			scopes: HashMap::new(),
 			parents: HashMap::new(),
 			by_hash: HashMap::new(),

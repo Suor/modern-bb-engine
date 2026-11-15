@@ -1,6 +1,7 @@
 //! What `new` and `inherit` do with a script that doesn't exist, as the original's
 //! (probed 2026-10-14): they log the failure as errors and give `null` instead of
 //! throwing, so the script goes on (and fails later, where it uses the `null`).
+//! `include` does the same under `GoOn` (probed 2026-11-15).
 //!
 //! The original's log names the file it looked for by the path cut at its first `.`
 //! (`scripts/skills/backgrounds/background.nope` looks for
@@ -24,6 +25,17 @@ fn log_errors(_vm: &SQVM, lines: &[String]) {
 	}
 }
 
+/// `include(path)`'s result: under `GoOn` a missing script is logged and gives null.
+pub(crate) fn include_or_null(vm: &SQVM, go_on: bool, result: Result<(), ScriptError>) -> Result<(), ScriptError> {
+	match result {
+		Err(ScriptError::NotFound(missing)) if go_on => {
+			log_errors(vm, &[file_not_found(&missing)]);
+			Ok(())
+		}
+		result => result,
+	}
+}
+
 /// `new(path)`'s result: a missing script is logged and gives `None` (null).
 pub(crate) fn new_or_null(vm: &SQVM, path: &str, result: Result<SqStrongRef, ScriptError>) -> Result<Option<SqStrongRef>, ScriptError> {
 	match result {
@@ -35,6 +47,8 @@ pub(crate) fn new_or_null(vm: &SQVM, path: &str, result: Result<SqStrongRef, Scr
 			]);
 			Ok(None)
 		}
+		// Its failure was logged when it loaded (probed 2026-11-15).
+		Err(ScriptError::Failed(_)) => Ok(None),
 		Err(e) => Err(e),
 	}
 }

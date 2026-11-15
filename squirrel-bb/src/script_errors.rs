@@ -12,7 +12,12 @@
 //! `add`, `sendMessageToSiblings`, `finishChildren`) are taken to do so too (not probed
 //! for them). An error in a class's `create()` is logged once and `new` gives the
 //! instance as `create()` left it, past the caller's `try`, at boot as after (parity
-//! probe `menu/new_create_throws`).
+//! probe `menu/new_create_throws`). A script file that fails to compile or run (at the
+//! scripts' sweep, under `include`, `new` or `inherit`) is logged (`Failed to load` /
+//! `Failed to execute script file`), stays loaded with what it defined, and its loader
+//! goes on past the caller's `try`; then `new` of it gives null, `inherit` from it an
+//! empty parent named `""`. A file `include` doesn't find is logged and skipped too
+//! (parity probe `menu/script_file_errors`).
 
 /// What the engine does with a script error raised in a call it makes into the scripts.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

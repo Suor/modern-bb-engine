@@ -59,12 +59,20 @@ pub(crate) fn include<S: ScriptSource>(
 	// floats in single precision like the original 32-bit-float engine, required for
 	// seed-exact worldgen (see `SqStrongRef::set_f32_math`). No state borrow is held
 	// across the run.
+	let go_on = state.borrow().script_errors == crate::ScriptErrors::GoOn;
+	// Named like the original names a source file: its path with `.nut` (hook frameworks
+	// read it back from the stack and cut the extension off; a cached compile keeps it).
+	let file = format!("{norm}.nut");
 	let closure = match script {
 		LoadedScript::Source(bytes) => {
 			let before = caches_compiles.then(|| compile_context(vm));
-			// Named like the original names a source file: its path with `.nut` (hook
-			// frameworks read it back from the stack and cut the extension off).
-			let compiled = vm.compile(&String::from_utf8_lossy(&bytes), &format!("{norm}.nut"));
+			let source = String::from_utf8_lossy(&bytes);
+			let compiled = if go_on {
+				vm.compile_capturing(&source, &file)
+					.map_err(|e| format!("\"{}\" line:{} column:{}", e.message, e.line, e.column))
+			} else {
+				vm.compile(&source, &file)
+			};
 			// Offer the compile for caching, unless it declared constants: loading it
 			// from a cache would skip those declarations, which later compiles rely on.
 			if let (Ok(closure), Some(before)) = (&compiled, before)
@@ -75,17 +83,36 @@ pub(crate) fn include<S: ScriptSource>(
 			}
 			compiled
 		}
-		LoadedScript::Bytecode(bytes) => vm.load_closure(&bytes),
+		LoadedScript::Bytecode(bytes) => vm.load_closure(&bytes).map_err(|e| if go_on { format!("\"{e}\"") } else { e }),
 	};
 	let scope = SqTable::new(vm).to_strong();
 	state.borrow_mut().scopes.insert(norm.clone(), scope.clone());
-	let result = closure.and_then(|closure| {
-		closure.set_f32_math(vm, true);
-		closure.call_with_this(vm, &scope, ())
-	});
+	let result = match closure {
+		Ok(closure) => {
+			closure.set_f32_math(vm, true);
+			closure.call_with_this(vm, &scope, ()).map_err(|e| (false, e))
+		}
+		Err(e) => Err((true, e)),
+	};
 
 	state.borrow_mut().load_stack.pop();
-	result.map_err(ScriptError::Runtime)?;
+
+	match result {
+		// As the original's (probed 2026-11-15): the failure is logged, the file stays
+		// loaded, its partial definitions stay, and the caller goes on, its `try` unaware.
+		Err((at_load, e)) if go_on => {
+			let row = if at_load {
+				format!("Failed to load script file \"{file}\". Reason: {e}.")
+			} else {
+				format!("Failed to execute script file \"{file}\". Reason: \"{e}\".")
+			};
+			crate::html_log::engine(crate::html_log::Class::Error, "Script", &row);
+			state.borrow_mut().failed.insert(norm);
+			return Ok(());
+		}
+		Err((_, e)) => return Err(ScriptError::Runtime(e)),
+		Ok(()) => {}
+	}
 	// A base class is stamped as soon as its script has run (see `adopt_base`).
 	adopt_base(vm, state, &norm);
 	Ok(())
@@ -154,7 +181,8 @@ impl<S: ScriptSource + 'static> ModuleSystem<S> {
 		self.state.borrow_mut().lazy_members = lazy;
 	}
 
-	/// What a script error in a class's `create()` does to `new` (see [`crate::ScriptErrors`]).
+	/// What a script error in a file's load or a class's `create()` does to `include`, `new`
+	/// and `inherit` (see [`crate::ScriptErrors`]).
 	pub fn set_script_errors(&self, policy: crate::ScriptErrors) {
 		self.state.borrow_mut().script_errors = policy;
 	}
@@ -172,7 +200,8 @@ impl<S: ScriptSource + 'static> ModuleSystem<S> {
 		{
 			let state = self.state.clone();
 			vm.register("include", move |vm: &SQVM, path: &str| {
-				include(vm, &state, path)
+				let go_on = state.borrow().script_errors == crate::ScriptErrors::GoOn;
+				crate::missing_script::include_or_null(vm, go_on, include(vm, &state, path))
 			});
 		}
 		{
@@ -288,6 +317,7 @@ impl<S: ScriptSource> ModuleSystem<S> {
 		st.parents.clear();
 		st.by_hash.clear();
 		st.included.clear();
+		st.failed.clear();
 		st.scopes.clear();
 		st.class_natives = None;
 	}

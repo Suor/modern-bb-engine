@@ -9,6 +9,8 @@ pub enum ScriptError {
 	Compile(String),
 	/// The script raised an error while running (or a constructor threw).
 	Runtime(String),
+	/// The script failed to load earlier and the game went on ([`crate::ScriptErrors::GoOn`]).
+	Failed(String),
 }
 
 impl std::fmt::Display for ScriptError {
@@ -17,6 +19,7 @@ impl std::fmt::Display for ScriptError {
 			ScriptError::NotFound(p) => write!(f, "script not found: {p}"),
 			ScriptError::Compile(e) => write!(f, "compile error: {e}"),
 			ScriptError::Runtime(e) => write!(f, "runtime error: {e}"),
+			ScriptError::Failed(p) => write!(f, "script failed to load: {p}"),
 		}
 	}
 }

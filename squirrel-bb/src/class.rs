@@ -82,8 +82,12 @@ pub(crate) fn prototype<'vm, S: ScriptSource>(
 	path: &str,
 ) -> Result<SqTable<'vm>, ScriptError> {
 	let norm = normalize_path(path);
+	let failed = |state: &SharedState<S>| {
+		if state.borrow().failed.contains(&norm) { Err(ScriptError::Failed(norm.clone())) } else { Ok(()) }
+	};
 
-	// Already cached?
+	// Already cached? A class whose script failed has none, even one it registered.
+	failed(state)?;
 	{
 		let st = state.borrow();
 		if let Some(proto) = st.prototypes.get(&norm) {
@@ -95,6 +99,7 @@ pub(crate) fn prototype<'vm, S: ScriptSource>(
 	// runs, and `include` adopts a base class after. (A script that failed after
 	// defining its class, on an earlier load, is adopted here.)
 	include(vm, state, &norm)?;
+	failed(state)?;
 	adopt_base(vm, state, &norm).ok_or_else(|| {
 		ScriptError::Runtime(format!(
 			"script '{norm}' did not register a class named '{}'",
@@ -143,10 +148,14 @@ pub(crate) fn inherit<S: ScriptSource>(
 	parent_path: &str,
 	mut body: SqTable,
 ) -> Result<SqStrongRef, ScriptError> {
-	let parent = prototype(vm, state, parent_path)?;
 	let lazy = state.borrow().lazy_levels;
-	let parent_levels = copy_levels(vm, &parent, lazy);
 	let parent_norm = normalize_path(parent_path);
+	let (parent_levels, parent_name) = match prototype(vm, state, parent_path) {
+		Ok(parent) => (copy_levels(vm, &parent, lazy), basename(&parent_norm).to_string()),
+		// As the original's (probed 2026-11-15): an empty parent without a name.
+		Err(ScriptError::Failed(_)) => (SqTable::new(vm).to_strong(), String::new()),
+		Err(e) => return Err(e),
+	};
 
 	// The child's own path is the script currently being loaded.
 	let child_path = state.borrow().load_stack.last().cloned();
@@ -158,8 +167,8 @@ pub(crate) fn inherit<S: ScriptSource>(
 	// Explicit super-calls go through a slot named after the parent class
 	// (`this.<parent>.create()`), recorded in `SuperName` (which hook frameworks walk:
 	// `p = p[p.SuperName]`). It holds this class's own copy of the parent's levels.
-	body.set("SuperName", basename(&parent_norm).to_string());
-	body.set(basename(&parent_norm), parent_levels);
+	body.set("SuperName", parent_name.clone());
+	body.set(&parent_name, parent_levels);
 
 	if let Some(child) = child_path {
 		let hash = class_name_hash(&child);
