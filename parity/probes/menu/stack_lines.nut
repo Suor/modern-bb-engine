@@ -10,10 +10,12 @@ local function p( _k, _f )
 	::logInfo("PROBE " + _k + " = " + typeof v + " " + (v == null ? "null" : v));
 }
 local seen = [];
+// Lines in this file count from here: where it sits in its group's script varies.
+local first = ::getstackinfos(1).line;
 local function look( ... )
 {
 	local s = ::getstackinfos(2);
-	seen.push(s.func + " " + s.src + ":" + s.line);
+	seen.push(s.func + " " + s.src + ":" + (s.src == "parity" ? "+" + (s.line - first) : "" + s.line));
 }
 local e = ::new("scripts/events/event");
 try { e.setScreen({ ID = "A", Text = "", Options = [], start = look }); } catch (x) {}

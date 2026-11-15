@@ -1,5 +1,5 @@
 # captured 2026-11-15 from Battle Brothers 1.5.2.3 (vanilla + zzz_bbtales_runner.zip, parity_menu_script_load_errors.zip)
 PROBE event.setScreen calling start = string setScreen scripts/events/event.nut:160
-PROBE a probe's function, call 0 = string caller parity:628
-PROBE a probe's function, call 1 = string caller parity:630
-PROBE a probe's function, call 2 = string caller parity:633
+PROBE a probe's function, call 0 = string caller parity:+11
+PROBE a probe's function, call 1 = string caller parity:+13
+PROBE a probe's function, call 2 = string caller parity:+16
