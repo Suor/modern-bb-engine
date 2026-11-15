@@ -23,12 +23,14 @@ cargo test --release -p bb-engine --test ui_payloads         # the UI payloads
 PARITY_DUMP=/tmp/ours cargo test --release -p bb-engine --test parity   # also write our output
 
 python3 parity/capture.py                  # recapture every golden from the original
-python3 parity/capture.py menu/math        # only the launch that contains this probe
+python3 parity/capture.py menu/math        # only this probe (its group runs whole)
 python3 parity/capture.py ui_payloads/world
 ```
 
 Capturing needs a probe runner that launches the original game (not part of this
-repository; point `BB_PROBE_RUNNER` at it). Probes are grouped by mode and seed, and each group is one game launch,
+repository; point `BB_PROBE_RUNNER` at it). A runner that writes `mods.txt` in its `--out`
+dir (an archive a line) has the goldens' header name those mods beside vanilla; otherwise it
+says Modern Hooks. Probes are grouped by mode and seed, and each group is one game launch,
 so add probes to an existing group when you can.
 
 ## Writing a probe

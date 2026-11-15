@@ -1,4 +1,4 @@
-# captured 2026-11-15 from Battle Brothers 1.5.2.3 (vanilla + Modern Hooks)
+# captured 2026-11-15 from Battle Brothers 1.5.2.3 (vanilla + zzz_bbtales_runner.zip)
 PROBE calls = integer 1
 PROBE in its file = string - -
 PROBE after = string 'staggered_effect' 2046529700

@@ -1,4 +1,4 @@
-# captured 2026-11-15 from Battle Brothers 1.5.2.3 (vanilla + Modern Hooks)
+# captured 2026-11-15 from Battle Brothers 1.5.2.3 (vanilla + zzz_bbtales_runner.zip)
 PROBE include 'scripts/skills/effects/sleeping_effect' log = 0 rows
 PROBE include 'scripts/skills/effects/sleeping_effect' = string runs=0
 PROBE include 'scripts/skills/effects/sleeping_effect.nut' log = 0 rows

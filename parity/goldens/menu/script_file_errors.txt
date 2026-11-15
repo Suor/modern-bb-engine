@@ -1,4 +1,4 @@
-# captured 2026-11-15 from Battle Brothers 1.5.2.3 (vanilla + Modern Hooks)
+# captured 2026-11-15 from Battle Brothers 1.5.2.3 (vanilla + zzz_bbtales_runner.zip)
 PROBE include missing log = 1 rows
 PROBE include missing log 1 = error Script Failed to load script file "scripts/bb_probe/missing_file.(nut/cnut)". Reason: File not found.
 PROBE include missing = string caught=none r=null

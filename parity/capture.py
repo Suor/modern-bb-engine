@@ -12,7 +12,7 @@ The UI payload probes in parity/ui_payloads/ (the scripts' side) each run
 alone, with their sibling .js file driving the steps from the game's UI.
 
     python3 parity/capture.py                 # every probe
-    python3 parity/capture.py menu/math       # only the groups containing these probes
+    python3 parity/capture.py menu/math       # only these probes (their groups run whole)
     python3 parity/capture.py ui_payloads/world
 
 The runner is expected to queue each launch until the game is free.
@@ -118,8 +118,15 @@ def game_version(out_dir: Path) -> str:
     return m.group(1) if m else "unknown version"
 
 
+def mounted(out_dir: Path) -> str:
+    """What the launch mounted beside vanilla: the runner's `mods.txt` in the out dir, one
+    archive a line, if it wrote one."""
+    mods = out_dir / "mods.txt"
+    return ", ".join(mods.read_text().split()) if mods.exists() else "Modern Hooks"
+
+
 def write_golden(name: str, lines: list[str], out_dir: Path):
-    header = f"# captured {time.strftime('%Y-%m-%d')} from {game_version(out_dir)} (vanilla + Modern Hooks)\n"
+    header = f"# captured {time.strftime('%Y-%m-%d')} from {game_version(out_dir)} (vanilla + {mounted(out_dir)})\n"
     golden = ROOT / "goldens" / f"{name}.txt"
     golden.parent.mkdir(parents=True, exist_ok=True)
     golden.write_text(header + "".join(l + "\n" for l in lines))
@@ -140,6 +147,8 @@ def main():
         print(f"== {mode} (seed={seed}): {len(probes)} probes -> {out_dir}", flush=True)
         sections = split_sections(run_group(mode, seed, combined_source(probes), out_dir))
         for p in probes:
+            if wanted and p.name not in wanted:
+                continue
             got = sections.get(p.name)
             if got is None:
                 print(f"   {p.name}: no output (section missing)")

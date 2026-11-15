@@ -1,4 +1,4 @@
-# captured 2026-11-15 from Battle Brothers 1.5.2.3 (vanilla + Modern Hooks)
+# captured 2026-11-15 from Battle Brothers 1.5.2.3 (vanilla + zzz_bbtales_runner.zip)
 PROBE caught = string none
 PROBE type = string table
 PROBE ID = string effects.sleeping
