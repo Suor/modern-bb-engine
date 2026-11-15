@@ -115,7 +115,8 @@ pub(super) fn start(
 	}
 
 	units.cancel_shake(vm, identity);
-	movement_start(vm, &mover, tile(&grid, vm, start)?, 0)?;
+	let errors = nav.borrow().script_errors;
+	movement_start(vm, errors, &mover, tile(&grid, vm, start)?, 0)?;
 	if speed != 0.0 && (seen_by_player(&grid, start) || seen_by_player(&grid, dest)) {
 		let t = Teleport::new(&grid, identity, mover, start, dest, callback, speed, fades, hop::virtual_now(vm));
 		nav.borrow_mut().teleports.push(t);
@@ -154,14 +155,15 @@ pub(super) fn switch_entities(nav: &Rc<RefCell<NavState>>, vm: &SQVM, args: &[Re
 	let speed = args[4].0.get_value::<Number>(vm).map_or(1.0, |n| n.0 as f32);
 	let landed_with = callback.clone().map(|f| (f, tag.clone()));
 
-	movement_start(vm, &ea, tile(&grid, vm, ta)?, 0)?;
-	movement_start(vm, &eb, tile(&grid, vm, tb)?, 0)?;
+	let errors = nav.borrow().script_errors;
+	movement_start(vm, errors, &ea, tile(&grid, vm, ta)?, 0)?;
+	movement_start(vm, errors, &eb, tile(&grid, vm, tb)?, 0)?;
 	if !seen_by_player(&grid, ta) && !seen_by_player(&grid, tb) {
 		units.lift(b)?;
 		units.move_to(a, tb)?;
 		units.move_to(b, ta)?;
-		movement_finish(vm, &ea, tile(&grid, vm, tb)?)?;
-		movement_finish(vm, &eb, tile(&grid, vm, ta)?)?;
+		movement_finish(vm, errors, &ea, tile(&grid, vm, tb)?)?;
+		movement_finish(vm, errors, &eb, tile(&grid, vm, ta)?)?;
 		// `onDone(tag)`, where the landings hand `onDone(unit, tag)`; see `on_done`.
 		if let Some(f) = &callback {
 			on_done(nav, |this| f.call_with_this(vm, this, (tag.clone(),)));
@@ -203,7 +205,7 @@ fn land(
 	here: usize,
 	callback: Option<&(SqStrongRef, SqStrongRef)>,
 ) -> Result<(), String> {
-	movement_finish(vm, mover, tile(grid, vm, here)?)?;
+	movement_finish(vm, nav.borrow().script_errors, mover, tile(grid, vm, here)?)?;
 	if let Some((f, tag)) = callback {
 		on_done(nav, |this| f.call_with_this(vm, this, (mover.clone(), tag.clone())));
 	}

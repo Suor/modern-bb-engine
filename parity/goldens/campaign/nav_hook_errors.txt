@@ -1,0 +1,21 @@
+# captured 2026-11-15 from Battle Brothers 1.5.2.3 (vanilla + zzz_bbtales_runner.zip)
+PROBE placed = bool true
+PROBE teleport, onDone raises = string true
+PROBE teleport, onDone raises: moved = bool true
+PROBE teleport, onDone raises: calls = integer 1
+PROBE teleport, onMovementFinish raises = string true
+PROBE teleport, onMovementFinish raises: moved = bool true
+PROBE teleport, onMovementFinish raises: raised = string onMovementFinish
+PROBE switchEntities, onDone raises = string true
+PROBE switchEntities, onDone raises: swapped = bool true
+PROBE switchEntities, onDone raises: calls = integer 2
+PROBE travel, onMovementStep raises: path = bool true
+PROBE travel, onMovementStep raises = string true..false
+PROBE travel, onMovementStep raises: at = string dest
+PROBE travel, onMovementStep raises: AP = integer 9
+PROBE travel, onMovementStep raises: raised = string onMovementStep onMovementStep
+PROBE travel next to a unit, its hooks raise: path = bool true
+PROBE travel next to a unit, its hooks raise = string false..false
+PROBE travel next to a unit, its hooks raise: at = string start
+PROBE travel next to a unit, its hooks raise: AP = integer 9
+PROBE travel next to a unit, its hooks raise: raised = string onMovementStep onAttackOfOpportunity

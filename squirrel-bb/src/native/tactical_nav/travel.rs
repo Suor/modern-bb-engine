@@ -32,6 +32,7 @@ use super::NavState;
 use super::hop::{self, Hop, Phase};
 use crate::native::tactical_entities::{Units, unit_identity};
 use crate::native::tactical_grid::{self, Grid};
+use crate::ScriptErrors;
 
 /// The player's faction (whose view decides whether a move animates).
 const PLAYER: i64 = 1;
@@ -76,14 +77,17 @@ fn neighbours_in_zone(g: &Grid, id: usize, mover: i64) -> Vec<SqStrongRef> {
 		.collect()
 }
 
-/// Ask the neighbours `method(mover, on_enter)` in turn; the first `true` answers.
-fn any_neighbour(vm: &SQVM, g: &Grid, id: usize, mover: &SqStrongRef, on_enter: bool, method: &str) -> Result<bool, String> {
+/// Ask the neighbours `method(mover, on_enter)` in turn; the first `true` answers. Under
+/// `GoOn` one that raised answers `true`, as the original's: a free attack's error keeps
+/// the unit at its start (parity probe `campaign/nav_hook_errors`).
+fn any_neighbour(vm: &SQVM, errors: ScriptErrors, g: &Grid, id: usize, mover: &SqStrongRef, on_enter: bool, method: &str) -> Result<bool, String> {
 	for e in neighbours_in_zone(g, id, mover.identity()) {
 		match e.call_method_ret::<bool, _>(vm, method, (mover.clone(), on_enter)) {
 			Ok(Some(true)) => return Ok(true),
 			Ok(_) => {}
 			// A neighbour without the hook (a map object) doesn't take part.
 			Err(e) if e.starts_with("no method") => {}
+			Err(_) if errors == ScriptErrors::GoOn => return Ok(true),
 			Err(e) => return Err(format!("{method}: {e}")),
 		}
 	}
@@ -91,33 +95,40 @@ fn any_neighbour(vm: &SQVM, g: &Grid, id: usize, mover: &SqStrongRef, on_enter: 
 }
 
 /// Whether the mover may stay or move on here without a neighbour stopping it.
-fn zone_lets_pass(vm: &SQVM, g: &Grid, id: usize, mover: &SqStrongRef, on_enter: bool) -> Result<bool, String> {
-	Ok(!any_neighbour(vm, g, id, mover, on_enter, "onMovementInZoneOfControl")?)
+fn zone_lets_pass(vm: &SQVM, errors: ScriptErrors, g: &Grid, id: usize, mover: &SqStrongRef, on_enter: bool) -> Result<bool, String> {
+	Ok(!any_neighbour(vm, errors, g, id, mover, on_enter, "onMovementInZoneOfControl")?)
 }
 
 /// The neighbours' free attacks on the mover at `id`; whether one happened.
-fn free_attack(vm: &SQVM, g: &Grid, id: usize, mover: &SqStrongRef, on_enter: bool) -> Result<bool, String> {
-	any_neighbour(vm, g, id, mover, on_enter, "onAttackOfOpportunity")
+fn free_attack(vm: &SQVM, errors: ScriptErrors, g: &Grid, id: usize, mover: &SqStrongRef, on_enter: bool) -> Result<bool, String> {
+	any_neighbour(vm, errors, g, id, mover, on_enter, "onAttackOfOpportunity")
 }
 
-fn step_ok(vm: &SQVM, mover: &SqStrongRef, method: &str, t: SqStrongRef, diff: i64) -> Result<bool, String> {
-	Ok(mover.call_method_ret::<bool, _>(vm, method, (t, diff))?.unwrap_or(false))
-}
-
-/// A hook's result, where a unit without the hook is fine.
-fn hook(method: &str, result: Result<(), String>) -> Result<(), String> {
-	match result {
-		Err(e) if e.starts_with("no method") => Ok(()),
-		other => other.map_err(|e| format!("{method}: {e}")),
+/// A step's answer. Under `GoOn` a step that raised counts as paid, as the original's: the
+/// move goes on, no AP spent (parity probe `campaign/nav_hook_errors`).
+fn step_ok(vm: &SQVM, errors: ScriptErrors, mover: &SqStrongRef, method: &str, t: SqStrongRef, diff: i64) -> Result<bool, String> {
+	match mover.call_method_ret::<bool, _>(vm, method, (t, diff)) {
+		Err(_) if errors == ScriptErrors::GoOn => Ok(true),
+		result => Ok(result?.unwrap_or(false)),
 	}
 }
 
-pub(super) fn movement_start(vm: &SQVM, mover: &SqStrongRef, t: SqStrongRef, steps: i64) -> Result<(), String> {
-	hook("onMovementStart", mover.call_method(vm, "onMovementStart", (t, steps)))
+/// A hook's result, where a unit without the hook is fine; under `GoOn` one that raised
+/// is reported and the move goes on, as the original's (parity probe
+/// `campaign/nav_hook_errors`).
+fn hook(errors: ScriptErrors, method: &str, result: Result<(), String>) -> Result<(), String> {
+	match result {
+		Err(e) if e.starts_with("no method") => Ok(()),
+		other => errors.settle(other).map_err(|e| format!("{method}: {e}")),
+	}
 }
 
-pub(super) fn movement_finish(vm: &SQVM, mover: &SqStrongRef, t: SqStrongRef) -> Result<(), String> {
-	hook("onMovementFinish", mover.call_method(vm, "onMovementFinish", (t,)))
+pub(super) fn movement_start(vm: &SQVM, errors: ScriptErrors, mover: &SqStrongRef, t: SqStrongRef, steps: i64) -> Result<(), String> {
+	hook(errors, "onMovementStart", mover.call_method(vm, "onMovementStart", (t, steps)))
+}
+
+pub(super) fn movement_finish(vm: &SQVM, errors: ScriptErrors, mover: &SqStrongRef, t: SqStrongRef) -> Result<(), String> {
+	hook(errors, "onMovementFinish", mover.call_method(vm, "onMovementFinish", (t,)))
 }
 
 fn is_alive(vm: &SQVM, mover: &SqStrongRef) -> bool {
@@ -146,6 +157,7 @@ pub(super) fn travel(nav: &Rc<RefCell<NavState>>, vm: &SQVM, entity: &SqStrongRe
 	) else {
 		return Ok(false);
 	};
+	let errors = nav.borrow().script_errors;
 	let occupied = |id: usize| grid.borrow().tiles[id].occupant.is_some();
 	let level = |id: usize| grid.borrow().tiles[id].level;
 
@@ -159,22 +171,22 @@ pub(super) fn travel(nav: &Rc<RefCell<NavState>>, vm: &SQVM, entity: &SqStrongRe
 	for (i, step) in path.iter().enumerate() {
 		let t = step.tile;
 		if cur == start {
-			if !step_ok(vm, &mover, "onMovementStep", tile(&grid, vm, t)?, level(t) - cur_level)? {
+			if !step_ok(vm, errors, &mover, "onMovementStep", tile(&grid, vm, t)?, level(t) - cur_level)? {
 				keep = 0;
 				break;
 			}
-			if free_attack(vm, &grid, start, &mover, false)? {
+			if free_attack(vm, errors, &grid, start, &mover, false)? {
 				keep = 0;
 				break;
 			}
 		} else {
-			if !occupied(cur) && !zone_lets_pass(vm, &grid, cur, &mover, false)? {
+			if !occupied(cur) && !zone_lets_pass(vm, errors, &grid, cur, &mover, false)? {
 				keep = i;
 				break;
 			}
-			if !step_ok(vm, &mover, "onMovementStep", tile(&grid, vm, t)?, level(t) - cur_level)? {
+			if !step_ok(vm, errors, &mover, "onMovementStep", tile(&grid, vm, t)?, level(t) - cur_level)? {
 				if occupied(cur) {
-					step_ok(vm, &mover, "onMovementUndo", tile(&grid, vm, cur)?, cur_level - prev_level)?;
+					step_ok(vm, errors, &mover, "onMovementUndo", tile(&grid, vm, cur)?, cur_level - prev_level)?;
 					keep = i - 1;
 				} else {
 					keep = i;
@@ -182,7 +194,7 @@ pub(super) fn travel(nav: &Rc<RefCell<NavState>>, vm: &SQVM, entity: &SqStrongRe
 				break;
 			}
 		}
-		if !occupied(t) && !zone_lets_pass(vm, &grid, t, &mover, true)? {
+		if !occupied(t) && !zone_lets_pass(vm, errors, &grid, t, &mover, true)? {
 			attacked_on_arrival = true;
 			keep = i + 1;
 			break;
@@ -200,13 +212,13 @@ pub(super) fn travel(nav: &Rc<RefCell<NavState>>, vm: &SQVM, entity: &SqStrongRe
 		return Ok(false);
 	};
 
-	movement_start(vm, &mover, tile(&grid, vm, start)?, path.len() as i64)?;
+	movement_start(vm, errors, &mover, tile(&grid, vm, start)?, path.len() as i64)?;
 	if !seen_by_player(&grid, start) && !seen_by_player(&grid, dest) {
 		// Out of the player's sight: done at once.
 		units.move_to(identity, dest)?;
-		movement_finish(vm, &mover, tile(&grid, vm, dest)?)?;
+		movement_finish(vm, errors, &mover, tile(&grid, vm, dest)?)?;
 		if attacked_on_arrival {
-			resettle_after_free_attack(vm, &grid, &units, identity, &mover, last_empty)?;
+			resettle_after_free_attack(vm, errors, &grid, &units, identity, &mover, last_empty)?;
 		}
 		nav.borrow_mut().path.clear();
 		return Ok(false);
@@ -236,6 +248,7 @@ pub(super) fn travel(nav: &Rc<RefCell<NavState>>, vm: &SQVM, entity: &SqStrongRe
 /// and finishes a move again, re-settled on the last empty tile it reached, at once.
 fn resettle_after_free_attack(
 	vm: &SQVM,
+	errors: ScriptErrors,
 	grid: &Grid,
 	units: &Units,
 	identity: i64,
@@ -243,11 +256,11 @@ fn resettle_after_free_attack(
 	last_empty: usize,
 ) -> Result<(), String> {
 	let Some(here) = units.info(identity).and_then(|u| u.tile) else { return Ok(()) };
-	if free_attack(vm, grid, here, mover, true)? && is_alive(vm, mover) {
-		movement_start(vm, mover, tile(grid, vm, here)?, 1)?;
+	if free_attack(vm, errors, grid, here, mover, true)? && is_alive(vm, mover) {
+		movement_start(vm, errors, mover, tile(grid, vm, here)?, 1)?;
 		units.move_to(identity, last_empty)?;
 		let now = units.info(identity).and_then(|u| u.tile).unwrap_or(here);
-		movement_finish(vm, mover, tile(grid, vm, now)?)?;
+		movement_finish(vm, errors, mover, tile(grid, vm, now)?)?;
 	}
 	Ok(())
 }
@@ -299,12 +312,13 @@ fn advance(nav: &Rc<RefCell<NavState>>, vm: &SQVM) -> Result<bool, String> {
 			units.opaque(vm, identity);
 			let here = units.info(identity).and_then(|u| u.tile).unwrap_or(dest);
 			units.set_pos(identity, grid.borrow().tiles[here].world_pos());
-			movement_finish(vm, &t.entity, tile(&grid, vm, here)?)?;
+			let errors = nav.borrow().script_errors;
+			movement_finish(vm, errors, &t.entity, tile(&grid, vm, here)?)?;
 			nav.borrow_mut().path.clear();
 			// After a move the player sees, the re-settle is a teleport (`0x4ca7a0`): none
 			// if the last empty tile is taken or is where the unit stands; otherwise
 			// `onMovementStart(tile, 0)` now and a hop there.
-			if t.attacked_on_arrival && free_attack(vm, &grid, here, &t.entity, true)? && is_alive(vm, &t.entity) {
+			if t.attacked_on_arrival && free_attack(vm, errors, &grid, here, &t.entity, true)? && is_alive(vm, &t.entity) {
 				super::teleport::start(nav, vm, identity, t.last_empty, None, 1.0, true)?;
 			}
 			Ok(false)

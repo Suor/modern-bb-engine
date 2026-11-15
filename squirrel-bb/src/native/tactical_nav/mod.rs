@@ -53,6 +53,8 @@ struct NavState {
 	/// [`occupants_into`](Self::occupants_into)'s buffer for `findPath`, kept between
 	/// searches.
 	occupant_buf: Vec<Option<i64>>,
+	/// What an error in a unit's movement hooks does (see [`crate::ScriptErrors`]).
+	script_errors: crate::ScriptErrors,
 }
 
 impl NavState {
@@ -114,6 +116,7 @@ impl TacticalNavigator {
 				motion: BattleMotion::default(),
 				markers: Vec::new(),
 				occupant_buf: Vec::new(),
+				script_errors: crate::ScriptErrors::Fail,
 			})),
 		}
 	}
@@ -121,6 +124,11 @@ impl TacticalNavigator {
 	/// The path's footsteps as drawn now.
 	pub(crate) fn scene_path(&self) -> Vec<crate::scene::tactical::ScenePathStep> {
 		visual::scene(&self.state.borrow())
+	}
+
+	/// What an error in a unit's movement hooks does (see [`crate::ScriptErrors`]).
+	pub(crate) fn set_script_errors(&self, policy: crate::ScriptErrors) {
+		self.state.borrow_mut().script_errors = policy;
 	}
 
 	/// How units' moves are paced (see [`BattleMotion`]).
