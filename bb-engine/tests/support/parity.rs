@@ -92,11 +92,18 @@ pub fn compare(
 	report: &mut Report,
 ) {
 	report.compared.insert(probe.to_string());
-	let ours_map: BTreeMap<&str, &str> = ours.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+	// A key logged more than once is compared occurrence by occurrence.
+	let mut ours_map: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+	for (k, v) in ours {
+		ours_map.entry(k.as_str()).or_default().push(v.as_str());
+	}
 	let golden_map: BTreeMap<&str, &str> = golden.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+	let mut seen: BTreeMap<&str, usize> = BTreeMap::new();
 	for (key, want) in golden {
 		report.checked += 1;
-		let got = ours_map.get(key.as_str()).copied();
+		let nth = seen.entry(key.as_str()).or_default();
+		let got = ours_map.get(key.as_str()).and_then(|vs| vs.get(*nth)).copied();
+		*nth += 1;
 		let listed = allowed.exact.contains_key(&(probe.to_string(), key.clone()));
 		let matches = got == Some(want.as_str());
 		let glob = if matches || listed { None } else { allowed.matching_glob(probe, key) };
