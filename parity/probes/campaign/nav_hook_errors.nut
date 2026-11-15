@@ -4,7 +4,8 @@
 // start. A unit's movement hooks are the class's, so an error is raised in them by a
 // property read: the unit's `m.CurrentProperties` throws when read by the named functions.
 // Reported: what the native answers, where the units end, which functions raised and how
-// often. A group of its own: it fights, and waits for the moves (`BbProbe.DeferDone`).
+// often. Then a hop's pace, over virtual time. A group of its own: it fights, and waits for
+// the moves (`BbProbe.DeferDone`).
 
 ::BbProbe.DeferDone = true;
 ::__navErr <- {
@@ -188,10 +189,42 @@
 		if (T.k == "travel, onMovementStep raises")
 		{
 			local e = P.enemies();
-			P.travel(e[0], ["onMovementStep", "onMovementInZoneOfControl", "onAttackOfOpportunity"], "travel next to a unit, its hooks raise", e[1]);
+			// A moment first: placing units right after a landing has crashed the original.
+			P.later(1000, @(_) P.travel(e[0], ["onMovementStep", "onMovementInZoneOfControl", "onAttackOfOpportunity"], "travel next to a unit, its hooks raise", e[1]));
 			return;
 		}
-		::BbProbe.done();
+		P.Paces <- [[1.0, 1], [1.0, 3], [0.5, 3]];
+		P.later(1000, P.pace);
+	},
+	// A hop's pace over virtual time: a teleport at `speed`, which the battle's update moves on
+	// a phase at a time, its onDone telling when it landed.
+	function pace( _ )
+	{
+		local P = ::__navErr, nav = ::Tactical.getNavigator();
+		if (P.Paces.len() == 0)
+		{
+			::BbProbe.done();
+			return;
+		}
+		local c = P.Paces.remove(0), e = P.enemies()[0];
+		// A hop goes straight to its destination, so its pace hangs on where that is: `c[1]`
+		// tiles in direction 0, on the same level, whatever the map.
+		local start = null, dest = null;
+		foreach (t in P.freeTiles(4, []))
+		{
+			local d = t;
+			for (local i = 0; i < c[1] && d != null; i++)
+				d = d.hasNextTile(0) && d.getNextTile(0).IsEmpty && d.getNextTile(0).Level == t.Level ? d.getNextTile(0) : null;
+			if (d != null) { start = t; dest = d; break; }
+		}
+		P.place(e, start);
+		local k = "pace, speed " + c[0] + ", " + c[1] + " tiles", t0 = ::Time.getVirtualTimeF();
+		local offset = (dest.Pos.X - start.Pos.X) + "," + (dest.Pos.Y - start.Pos.Y);
+		P.log(k, nav.teleport(e, dest, function( _e, _tag )
+		{
+			::__navErr.log(k + ": landed", "offset " + offset + ", " + ::Math.round((::Time.getVirtualTimeF() - t0) * 60) + " frames of virtual time");
+			::__navErr.later(1000, ::__navErr.pace);
+		}, null, false, c[0]));
 	}
 };
 ::__navErr.later(2500, ::__navErr.answerIntro);

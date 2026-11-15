@@ -1,4 +1,4 @@
-# captured 2026-11-15 from Battle Brothers 1.5.2.3 (vanilla + zzz_bbtales_runner.zip)
+# captured 2026-11-16 from Battle Brothers 1.5.2.3 (vanilla + zzz_bbtales_runner.zip)
 PROBE placed = bool true
 PROBE teleport, onDone raises = string true
 PROBE teleport, onDone raises: moved = bool true
@@ -19,3 +19,9 @@ PROBE travel next to a unit, its hooks raise = string false..false
 PROBE travel next to a unit, its hooks raise: at = string start
 PROBE travel next to a unit, its hooks raise: AP = integer 9
 PROBE travel next to a unit, its hooks raise: raised = string onMovementStep onAttackOfOpportunity
+PROBE pace, speed 1, 1 tiles = bool true
+PROBE pace, speed 1, 1 tiles: landed = string offset 0,80, 31 frames of virtual time
+PROBE pace, speed 1, 3 tiles = bool true
+PROBE pace, speed 1, 3 tiles: landed = string offset 0,240, 45 frames of virtual time
+PROBE pace, speed 0.5, 3 tiles = bool true
+PROBE pace, speed 0.5, 3 tiles: landed = string offset 0,240, 88 frames of virtual time

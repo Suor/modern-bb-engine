@@ -181,7 +181,8 @@ fn run_group(mode: &str, seed: Option<&str>, probes: &[&Probe]) -> Vec<String> {
 	let data = Path::new(harness::STEAM_DATA_DIR);
 	let mut archives = harness::data_archives(data).expect("the install's archives");
 	archives.extend(probes.iter().filter_map(|p| p.files.as_ref().map(|f| zip_mod(&p.mod_name(), f))));
-	let mut engine = harness::open_mounted(data, archives, |_| {}).expect("open install");
+	// Moves paced over virtual time, as the original's.
+	let mut engine = harness::open_mounted(data, archives, |c| c.battle_motion = squirrel_bb::BattleMotion::Timed).expect("open install");
 	// As the original: a script error is reported and the game goes on.
 	engine.set_script_errors(squirrel_bb::ScriptErrors::GoOn);
 	// The rows come through the tap; the terminal stays quiet.
