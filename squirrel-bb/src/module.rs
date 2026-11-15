@@ -10,7 +10,7 @@ use squirrel::{Retained, SQVM, SqStrongRef, SqTable, StackArgs, This};
 use crate::class::{adopt_base, inherit, is_kind_of, new_instance, prototype};
 use crate::compile_context::compile_context;
 use crate::error::ScriptError;
-use crate::hash::normalize_path;
+use crate::hash::{lookup_path, normalize_path};
 use crate::source::{LoadedScript, ScriptSource};
 use crate::state::{SharedState, State};
 
@@ -31,15 +31,16 @@ pub(crate) fn include<S: ScriptSource>(
 		return Ok(());
 	}
 
+	let file_path = lookup_path(&norm);
 	// The engine's own scripts aren't the source's to cache.
-	let ours = crate::engine_scripts::load(&norm);
+	let ours = crate::engine_scripts::load(&file_path);
 	let caches_compiles = ours.is_none() && state.borrow().source.caches_compiles();
 	let script = match ours {
 		Some(script) => script,
 		None => state
 			.borrow()
 			.source
-			.load_for(&norm, &|| compile_context(vm))
+			.load_for(&file_path, &|| compile_context(vm))
 			.ok_or_else(|| ScriptError::NotFound(norm.clone()))?,
 	};
 
@@ -63,6 +64,7 @@ pub(crate) fn include<S: ScriptSource>(
 	// Named like the original names a source file: its path with `.nut` (hook frameworks
 	// read it back from the stack and cut the extension off; a cached compile keeps it).
 	let file = format!("{norm}.nut");
+	let bytecode = matches!(script, LoadedScript::Bytecode(_));
 	let closure = match script {
 		LoadedScript::Source(bytes) => {
 			let before = caches_compiles.then(|| compile_context(vm));
@@ -79,7 +81,7 @@ pub(crate) fn include<S: ScriptSource>(
 				&& compile_context(vm) == before
 				&& let Ok(bytecode) = closure.write_closure(vm)
 			{
-				state.borrow().source.compiled(&norm, before, &bytecode);
+				state.borrow().source.compiled(&file_path, before, &bytecode);
 			}
 			compiled
 		}
@@ -101,6 +103,10 @@ pub(crate) fn include<S: ScriptSource>(
 		// As the original's (probed 2026-11-15): the failure is logged, the file stays
 		// loaded, its partial definitions stay, and the caller goes on, its `try` unaware.
 		Err((at_load, e)) if go_on => {
+			// The log names the file it ran, a `.cnut` one too; a cached compile is of a `.nut`.
+			let cnut = bytecode
+				&& !(caches_compiles && matches!(state.borrow().source.load(&file_path), Some(LoadedScript::Source(_))));
+			let file = if cnut { format!("{norm}.cnut") } else { file };
 			let row = if at_load {
 				format!("Failed to load script file \"{file}\". Reason: {e}.")
 			} else {

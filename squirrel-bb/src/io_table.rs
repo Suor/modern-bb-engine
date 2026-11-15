@@ -4,7 +4,7 @@
 
 use squirrel::{SQVM, SqArray, SqStrongRef, SqTable};
 
-use crate::hash::{class_name_hash, normalize_path};
+use crate::hash::{class_name_hash, lookup_path, normalize_path};
 use crate::source::ScriptSource;
 use crate::state::SharedState;
 
@@ -19,11 +19,12 @@ pub(crate) fn install<S: ScriptSource + 'static>(vm: &mut SQVM, state: &SharedSt
 	let by_name = {
 		let state = state.clone();
 		vm.make_closure(move |path: &str| -> Option<i64> {
-			// Like the original: only an existing script, named by its exact
-			// canonical path, has a hash; anything else (wrong case, a `.nut`
-			// suffix, an unknown path) yields null. Remember the mapping so a later
+			// Like the original: only an existing script under `scripts/`, named by its
+			// exact canonical path, has a hash; anything else (wrong case, an extension,
+			// doubled slashes, an unknown path, a mod's file elsewhere even once included)
+			// yields null (parity probe `menu/script_paths`). Remember the mapping so a later
 			// `scriptFilenameByHash` can reverse it even for an unloaded script.
-			if path != normalize_path(path) {
+			if path != normalize_path(path) || path != lookup_path(path) || !path.starts_with("scripts/") {
 				return None;
 			}
 			let known = state.borrow().prototypes.contains_key(path)

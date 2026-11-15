@@ -3,7 +3,7 @@
 //! throwing, so the script goes on (and fails later, where it uses the `null`).
 //! `include` does the same under `GoOn` (probed 2026-11-15).
 //!
-//! The original's log names the file it looked for by the path cut at its first `.`
+//! The original's log names the file it looked for by the path cut at its last `.`
 //! (`scripts/skills/backgrounds/background.nope` looks for
 //! `scripts/skills/backgrounds/background.(nut/cnut)`); `inherit` logs that twice.
 
@@ -12,9 +12,8 @@ use squirrel::{SQVM, SqStrongRef};
 use crate::error::ScriptError;
 use crate::html_log::{self, Class};
 
-/// The original's line for a script file it can't find.
-fn file_not_found(path: &str) -> String {
-	let stem = path.split('.').next().unwrap_or(path);
+/// The original's line for a script file it can't find, by its name (see `normalize_path`).
+fn file_not_found(stem: &str) -> String {
 	format!("Failed to load script file \"{stem}.(nut/cnut)\". Reason: File not found.")
 }
 
@@ -73,7 +72,7 @@ mod tests {
 	#[test]
 	fn the_file_looked_for_is_the_path_up_to_its_first_dot() {
 		assert_eq!(
-			file_not_found("scripts/skills/backgrounds/background.nope"),
+			file_not_found(&crate::hash::normalize_path("scripts/skills/backgrounds/background.nope")),
 			"Failed to load script file \"scripts/skills/backgrounds/background.(nut/cnut)\". Reason: File not found."
 		);
 		assert_eq!(file_not_found("scripts/nope/missing_thing"), "Failed to load script file \"scripts/nope/missing_thing.(nut/cnut)\". Reason: File not found.");

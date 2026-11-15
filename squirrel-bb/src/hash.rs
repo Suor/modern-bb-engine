@@ -11,13 +11,17 @@
 //! `IO.scriptHashByFilename` of troop scripts), so importing them depends on it. The
 //! same function stamps objects and answers `IO` queries.
 
-/// Normalize a script path for use as a cache key and hash input: backslashes to
-/// forward slashes, a trailing `.nut` removed, surrounding whitespace trimmed.
-/// This folds the occasional stray variant onto the canonical form so a path is
-/// hashed and cached consistently however it was written.
+/// A script's name, as the original takes it (parity probe `menu/script_paths`): the path
+/// cut at its last `.`, kept otherwise as written (spaces, case, backslashes). It keys
+/// the run-once guard and the class cache and is hashed, so a file runs again under
+/// another spelling that [`lookup_path`] finds.
 pub fn normalize_path(path: &str) -> String {
-	let path = path.trim().replace('\\', "/");
-	path.strip_suffix(".nut").unwrap_or(&path).to_string()
+	path.rfind('.').map_or(path, |dot| &path[..dot]).to_string()
+}
+
+/// Where the original looks a script named `norm` up: repeated and leading slashes collapsed.
+pub(crate) fn lookup_path(norm: &str) -> String {
+	norm.split('/').filter(|s| !s.is_empty()).collect::<Vec<_>>().join("/")
 }
 
 /// The final path segment — the BB "class name": `scripts/skills/actives/bash`
@@ -55,13 +59,12 @@ mod tests {
 			normalize_path("scripts/skills/skill.nut"),
 			"scripts/skills/skill"
 		);
+		assert_eq!(normalize_path("scripts/skills/skill.cnut"), "scripts/skills/skill");
+		assert_eq!(normalize_path("scripts/skills/../skills/skill"), "scripts/skills/.");
+		assert_eq!(normalize_path("scripts\\skills\\skill"), "scripts\\skills\\skill");
 		assert_eq!(
-			normalize_path("scripts\\skills\\skill"),
-			"scripts/skills/skill"
-		);
-		assert_eq!(
-			normalize_path("  scripts/skills/skill  "),
-			"scripts/skills/skill"
+			normalize_path("scripts/skills/skill .nut"),
+			"scripts/skills/skill "
 		);
 	}
 
@@ -74,10 +77,9 @@ mod tests {
 
 	#[test]
 	fn hash_is_stable_and_path_invariant() {
-		// The same logical path hashes the same however it is written.
+		// A path hashes the same with or without its extension.
 		let h = class_name_hash("scripts/skills/skill");
 		assert_eq!(h, class_name_hash("scripts/skills/skill.nut"));
-		assert_eq!(h, class_name_hash("scripts\\skills\\skill"));
 		// Distinct paths hash differently.
 		assert_ne!(h, class_name_hash("scripts/skills/actives/bash"));
 		// Values the original gives (a probe, and the hashes in its save files).

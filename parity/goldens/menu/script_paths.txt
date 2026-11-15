@@ -1,0 +1,56 @@
+# captured 2026-11-15 from Battle Brothers 1.5.2.3 (vanilla + Modern Hooks)
+PROBE include 'scripts/skills/effects/sleeping_effect' log = 0 rows
+PROBE include 'scripts/skills/effects/sleeping_effect' = string runs=0
+PROBE include 'scripts/skills/effects/sleeping_effect.nut' log = 0 rows
+PROBE include 'scripts/skills/effects/sleeping_effect.nut' = string runs=0
+PROBE include 'scripts/skills/effects/sleeping_effect.cnut' log = 0 rows
+PROBE include 'scripts/skills/effects/sleeping_effect.cnut' = string runs=0
+PROBE include 'scripts/skills/effects/sleeping_effect.x' log = 0 rows
+PROBE include 'scripts/skills/effects/sleeping_effect.x' = string runs=0
+PROBE include 'scripts/skills/effects/sleeping_effect ' log = 1 rows
+PROBE include 'scripts/skills/effects/sleeping_effect ' log 1 = error Script Failed to load script file "scripts/skills/effects/sleeping_effect .(nut/cnut)". Reason: File not found.
+PROBE include 'scripts/skills/effects/sleeping_effect ' = string runs=0
+PROBE include ' scripts/skills/effects/sleeping_effect' log = 1 rows
+PROBE include ' scripts/skills/effects/sleeping_effect' log 1 = error Script Failed to load script file " scripts/skills/effects/sleeping_effect.(nut/cnut)". Reason: File not found.
+PROBE include ' scripts/skills/effects/sleeping_effect' = string runs=0
+PROBE include 'scripts/skills/effects/sleeping_effect .nut' log = 1 rows
+PROBE include 'scripts/skills/effects/sleeping_effect .nut' log 1 = error Script Failed to load script file "scripts/skills/effects/sleeping_effect .(nut/cnut)". Reason: File not found.
+PROBE include 'scripts/skills/effects/sleeping_effect .nut' = string runs=0
+PROBE include 'Scripts/skills/effects/sleeping_effect' log = 1 rows
+PROBE include 'Scripts/skills/effects/sleeping_effect' log 1 = error Script Failed to load script file "Scripts/skills/effects/sleeping_effect.(nut/cnut)". Reason: File not found.
+PROBE include 'Scripts/skills/effects/sleeping_effect' = string runs=0
+PROBE include 'scripts\skills\effects\sleeping_effect' log = 1 rows
+PROBE include 'scripts\skills\effects\sleeping_effect' log 1 = error Script Failed to load script file "scripts\skills\effects\sleeping_effect.(nut/cnut)". Reason: File not found.
+PROBE include 'scripts\skills\effects\sleeping_effect' = string runs=0
+PROBE include './scripts/skills/effects/sleeping_effect' log = 1 rows
+PROBE include './scripts/skills/effects/sleeping_effect' log 1 = error Script Failed to load script file ".(nut/cnut)". Reason: File not found.
+PROBE include './scripts/skills/effects/sleeping_effect' = string runs=0
+PROBE include 'scripts/skills/effects/../effects/sleeping_effect' log = 1 rows
+PROBE include 'scripts/skills/effects/../effects/sleeping_effect' log 1 = error Script Failed to load script file "scripts/skills/effects/..(nut/cnut)". Reason: File not found.
+PROBE include 'scripts/skills/effects/../effects/sleeping_effect' = string runs=0
+PROBE include 'scripts//skills/effects/sleeping_effect' log = 0 rows
+PROBE include 'scripts//skills/effects/sleeping_effect' = string runs=1
+PROBE include 'again scripts//skills/effects/sleeping_effect' log = 0 rows
+PROBE include 'again scripts//skills/effects/sleeping_effect' = string runs=0
+PROBE include '/scripts/skills/effects/sleeping_effect' log = 0 rows
+PROBE include '/scripts/skills/effects/sleeping_effect' = string runs=1
+PROBE include 'scripts/skills//effects/sleeping_effect.nut' log = 0 rows
+PROBE include 'scripts/skills//effects/sleeping_effect.nut' = string runs=1
+PROBE new 'scripts/skills/effects/sleeping_effect' log = 0 rows
+PROBE new 'scripts/skills/effects/sleeping_effect' = string effects.sleeping sleeping_effect 2081263306
+PROBE new 'scripts/skills/effects/sleeping_effect.nut' log = 0 rows
+PROBE new 'scripts/skills/effects/sleeping_effect.nut' = string effects.sleeping sleeping_effect 2081263306
+PROBE new 'scripts/skills/effects/sleeping_effect ' log = 2 rows
+PROBE new 'scripts/skills/effects/sleeping_effect ' log 1 = error Script Failed to load script file "scripts/skills/effects/sleeping_effect .(nut/cnut)". Reason: File not found.
+PROBE new 'scripts/skills/effects/sleeping_effect ' log 2 = error Script Failed to create new instance from "scripts/skills/effects/sleeping_effect ". Reason: Script not found.
+PROBE new 'scripts/skills/effects/sleeping_effect ' = string null
+PROBE new 'scripts//skills/effects/sleeping_effect' log = 0 rows
+PROBE new 'scripts//skills/effects/sleeping_effect' = string effects.sleeping sleeping_effect 1296212909
+PROBE new '/scripts/skills/effects/sleeping_effect' log = 0 rows
+PROBE new '/scripts/skills/effects/sleeping_effect' = string effects.sleeping sleeping_effect 937040945
+PROBE hash 'scripts/skills/effects/sleeping_effect' = integer 2081263306
+PROBE hash 'scripts/skills/effects/sleeping_effect ' = null null
+PROBE hash 'scripts/skills/effects/sleeping_effect.nut' = null null
+PROBE hash 'scripts//skills/effects/sleeping_effect' = null null
+PROBE hash '/scripts/skills/effects/sleeping_effect' = null null
+PROBE hash 'scripts/nope' = null null

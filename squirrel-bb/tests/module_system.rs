@@ -858,3 +858,30 @@ fn a_failing_script_file_is_logged_and_skipped_under_go_on() {
 	)
 	.expect("the error reaches the caller");
 }
+
+// As the original (probed 2026-11-15): `a .nut` is the script `a `, listed, included and
+// hashed by that name; `a` doesn't find it. Only scripts under `scripts/` have a hash.
+#[test]
+fn a_space_before_the_extension_is_part_of_the_name() {
+	let (mut vm, _modules) = vm_with(&[
+		("lib/a ", "::A <- 1;"),
+		("lib/b ", "::B <- 1;"),
+		("lib/c ", "::C <- 1;"),
+		("scripts/k ", "this[\"k \"] <- { m = { X = 1 }, function create() { this.m.X = 2; } };"),
+	]);
+	vm.run_script(
+		r#"
+		local en = ::IO.enumerateFiles("lib");
+		assert(en.len() == 3 && en[0] == "lib/a " && en[2] == "lib/c ");
+		::include("lib/a ");
+		::include("lib/b .nut");
+		try { ::include("lib/c"); } catch (e) {}
+		assert(::A == 1 && ::B == 1 && getroottable().rawin("C") == false);
+		assert(::new("scripts/k ").m.X == 2);
+		assert(typeof ::IO.scriptHashByFilename("scripts/k ") == "integer");
+		assert(::IO.scriptHashByFilename("lib/a ") == null);
+		"#,
+		"spaces",
+	)
+	.expect("a name with a space loads");
+}

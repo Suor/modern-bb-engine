@@ -5,3 +5,13 @@ PROBE include missing = string caught=none r=null
 PROBE include missing again log = 1 rows
 PROBE include missing again log 1 = error Script Failed to load script file "scripts/bb_probe/missing_file.(nut/cnut)". Reason: File not found.
 PROBE include missing again = string caught=none r=null
+PROBE include throws log = 1 rows
+PROBE include throws log 1 = error Script Failed to execute script file "scripts//skills/effects/dazed_effect.cnut". Reason: "BB_PROBE_TOP".
+PROBE include throws = string caught=none r=null
+PROBE include again log = 0 rows
+PROBE include again = string caught=none r=null
+PROBE new of it log = 0 rows
+PROBE new of it = string caught=none r=null
+PROBE inherit from it log = 0 rows
+PROBE inherit from it = string SuperName='' super=0 keys=3
+PROBE new by its own path = string effects.dazed
