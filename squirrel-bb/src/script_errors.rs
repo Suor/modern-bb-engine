@@ -10,7 +10,9 @@
 //! call script callbacks behave the same: they return normally to their caller (probed,
 //! `callback_errors.rs`). The state natives that run hooks (`show`, `hide`, `finish`,
 //! `add`, `sendMessageToSiblings`, `finishChildren`) are taken to do so too (not probed
-//! for them).
+//! for them). An error in a class's `create()` is logged once and `new` gives the
+//! instance as `create()` left it, past the caller's `try`, at boot as after (parity
+//! probe `menu/new_create_throws`).
 
 /// What the engine does with a script error raised in a call it makes into the scripts.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

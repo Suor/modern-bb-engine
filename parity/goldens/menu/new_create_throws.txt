@@ -1,0 +1,8 @@
+# captured 2026-11-15 from Battle Brothers 1.5.2.3 (vanilla + Modern Hooks)
+PROBE caught = string none
+PROBE type = string table
+PROBE ID = string effects.sleeping
+PROBE Overlay = string status_effect_82
+PROBE Type = integer 0
+PROBE IsRemovedAfterBattle = bool false
+PROBE ping = string effects.sleeping

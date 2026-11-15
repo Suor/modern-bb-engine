@@ -143,6 +143,8 @@ fn log_windows(rows: &[(String, String, String)]) -> Vec<String> {
 /// Run one (mode, seed) group in our engine; the PROBE lines in order.
 fn run_group(mode: &str, seed: Option<&str>, probes: &[&Probe]) -> Vec<String> {
 	let mut engine = harness::open_install(Path::new(harness::STEAM_DATA_DIR)).expect("open install");
+	// As the original: a script error is reported and the game goes on.
+	engine.set_script_errors(squirrel_bb::ScriptErrors::GoOn);
 	// The rows come through the tap; the terminal stays quiet.
 	engine.set_log_handler(|_, _| {});
 	// Every row log.html would get (the original's runner reads the same rows).

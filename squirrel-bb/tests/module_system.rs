@@ -750,3 +750,46 @@ fn lookups_through_the_levels_follow_late_patches() {
 		assert!(reference.contains(want), "{want:?} missing from:\n{reference}");
 	}
 }
+
+const THROWER: &str = r#"
+this.thrower <- {
+	m = { X = 1, Y = 1 },
+	function create() { this.m.X = 2; throw "BB_PROBE_ERR"; this.m.Y = 2; }
+	function ping() { return "pong"; }
+};
+"#;
+
+// As the original (probed 2026-11-15, at boot and after): a throwing `create()` is reported
+// once and `new` gives the instance as it left it, past the caller's `try`. `Fail` throws.
+#[test]
+fn a_throwing_create_gives_the_instance_under_go_on() {
+	let (mut vm, modules) = vm_with(&[("scripts/thrower", THROWER)]);
+	let reported = std::rc::Rc::new(std::cell::Cell::new(0));
+	{
+		let reported = reported.clone();
+		vm.set_runtime_error_handler(move |_| reported.set(reported.get() + 1));
+	}
+	modules.set_script_errors(squirrel_bb::ScriptErrors::GoOn);
+	vm.run_script(
+		r#"
+		local r = null, caught = null;
+		try { r = ::new("scripts/thrower"); } catch (e) { caught = e; }
+		assert(caught == null);
+		assert(r.m.X == 2 && r.m.Y == 1 && r.ping() == "pong");
+		"#,
+		"go on",
+	)
+	.expect("new gives the instance");
+	assert_eq!(reported.get(), 1, "reported once");
+
+	modules.set_script_errors(squirrel_bb::ScriptErrors::Fail);
+	vm.run_script(
+		r#"
+		local caught = null;
+		try { ::new("scripts/thrower"); } catch (e) { caught = e; }
+		assert(caught == "runtime error: BB_PROBE_ERR");
+		"#,
+		"fail",
+	)
+	.expect("the error reaches the caller");
+}

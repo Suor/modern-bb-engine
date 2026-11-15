@@ -154,6 +154,11 @@ impl<S: ScriptSource + 'static> ModuleSystem<S> {
 		self.state.borrow_mut().lazy_members = lazy;
 	}
 
+	/// What a script error in a class's `create()` does to `new` (see [`crate::ScriptErrors`]).
+	pub fn set_script_errors(&self, policy: crate::ScriptErrors) {
+		self.state.borrow_mut().script_errors = policy;
+	}
+
 	/// Install the native module-system functions into `vm`'s root table:
 	/// `include`, `inherit`, `new`, `isKindOf`, and the `IO` hash registry
 	/// (`scriptFilenameByHash` / `scriptHashByFilename`). Call once, before any

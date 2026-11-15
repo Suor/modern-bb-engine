@@ -268,9 +268,9 @@ pub(crate) fn new_instance<S: ScriptSource>(
 	let mut instance = prev.expect("the chain is never empty");
 	instance.set("ClassNameHash", class_name_hash(&norm));
 	vm.census_track(CensusTrack::Resume);
-	instance
-		.call_method("create", ())
-		.map_err(ScriptError::Runtime)?;
+	let created = instance.call_method("create", ());
+	// Under `GoOn`, as the original: `new` gives the instance as the failed `create()` left it.
+	state.borrow().script_errors.settle(created).map_err(ScriptError::Runtime)?;
 	Ok(instance.to_strong())
 }
 

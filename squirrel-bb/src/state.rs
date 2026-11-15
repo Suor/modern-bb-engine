@@ -57,6 +57,8 @@ pub(crate) struct State<S: ScriptSource> {
 	/// Whether an instance's member tables `m` are lazy deep copies (see `class.rs`): on,
 	/// unless `BB_LAZY_MEMBERS=0`.
 	pub(crate) lazy_members: bool,
+	/// What a script error in `create()` does (see [`crate::ScriptErrors`]).
+	pub(crate) script_errors: crate::ScriptErrors,
 }
 
 impl<S: ScriptSource> State<S> {
@@ -74,6 +76,7 @@ impl<S: ScriptSource> State<S> {
 			class_natives: None,
 			lazy_levels: std::env::var("BB_LAZY_LEVELS").map_or(true, |v| v != "0"),
 			lazy_members: std::env::var("BB_LAZY_MEMBERS").map_or(true, |v| v != "0"),
+			script_errors: crate::ScriptErrors::Fail,
 		}
 	}
 }

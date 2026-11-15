@@ -537,11 +537,13 @@ impl<S: ScriptSource + 'static> Engine<S> {
 	}
 
 	/// What a script error does to the engine's calls into the scripts from now on: the
-	/// states' hooks and the headless UI's replies (see [`crate::ScriptErrors`]). A game a
-	/// player plays goes on, as the original; with [`ScriptErrors::GoOn`](crate::ScriptErrors::GoOn)
-	/// install a reporter first ([`crate::report_script_errors`]), or the errors go unseen.
+	/// states' hooks, the headless UI's replies and `new`'s `create()` (see
+	/// [`crate::ScriptErrors`]). A game a player plays goes on, as the original; with
+	/// [`ScriptErrors::GoOn`](crate::ScriptErrors::GoOn) install a reporter first
+	/// ([`crate::report_script_errors`]), or the errors go unseen.
 	pub fn set_script_errors(&self, policy: crate::ScriptErrors) {
 		self.root_state.set_script_errors(policy);
+		self.modules.set_script_errors(policy);
 		self.ui_client.borrow_mut().set_script_errors(policy);
 	}
 
