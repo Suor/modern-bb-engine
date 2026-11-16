@@ -1,4 +1,4 @@
 [submodule "squirrel-sys"]
 	path = squirrel-sys
-	url = https://github.com/Enduriel/squirrel-sys.git
-	branch = squirrel-master
+	url = https://github.com/Suor/squirrel-sys.git
+	branch = bbtales
