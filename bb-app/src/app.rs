@@ -166,6 +166,9 @@ struct Running {
 	/// window tests' stand-in for a late timer or frame callback, see
 	/// `bb_app::display_clock`).
 	test_late_frames: Option<(u64, f64)>,
+	/// With `BB_FRAME_CAP=N`, the frame rate, while it's limited, is capped at N a second
+	/// instead of the video mode's cap.
+	frame_cap_override: Option<i64>,
 	/// Whether the mouse moved since the last frame presented (see `bb_app::mouse_refresh`).
 	mouse_refresh: MouseRefresh,
 	/// The system said the window isn't shown (`WindowEvent::Occluded`).
@@ -511,6 +514,7 @@ impl App {
 				.ok()
 				.and_then(|v| v.split_once(':').and_then(|(n, ms)| Some((n.parse().ok()?, ms.parse().ok()?))))
 				.filter(|&(n, _)| n > 0),
+			frame_cap_override: std::env::var("BB_FRAME_CAP").ok().and_then(|v| v.parse().ok()).filter(|&n| n > 0),
 			mouse_refresh: MouseRefresh::default(),
 			occluded: false,
 			next_stats: std::env::var_os("BB_STATS").is_some_and(|v| v != "0").then(Instant::now),
@@ -681,7 +685,8 @@ impl Running {
 	/// The frame cap's interval, with the frame rate limited.
 	fn frame_cap(&self) -> Option<Duration> {
 		let mode = self.game.video().mode();
-		(mode.limit_frame_rate && mode.frame_cap > 0).then(|| Duration::from_secs_f64(1.0 / mode.frame_cap as f64))
+		let cap = self.frame_cap_override.unwrap_or(mode.frame_cap);
+		(mode.limit_frame_rate && cap > 0).then(|| Duration::from_secs_f64(1.0 / cap as f64))
 	}
 
 	/// When the next frame may start: a refresh of the display after the last, on the
