@@ -7,8 +7,8 @@
 //! world's lighting: an ambient colour and saturation (`0x4e63a0`). Every
 //! `World.update()` adds
 //! `speed * realDelta` (the frame's real delta in seconds) to `Time` and finds the
-//! current phase. `World.setSpeedMult` also sets the `Time` service's virtual speed,
-//! so `Time.getVirtualTime*` advance at the same rate. Arithmetic is `f32`, as in
+//! current phase. `World.setSpeedMult` also sets the `Time` service's virtual speed
+//! (`install_set_speed_mult`), so `Time.getVirtualTime*` advance at the same rate. Arithmetic is `f32`, as in
 //! the original.
 //!
 //! The lighting blends from the phase's towards the next phase's as the phase passes,
@@ -263,11 +263,7 @@ pub(crate) fn world_entries(
 	};
 	let set_speed_mult = {
 		let c = clock.clone();
-		vm.make_closure(move |vm: &SQVM, speed: Number| -> Result<(), String> {
-			c.borrow_mut().speed = speed.0 as f32;
-			let time = SqTable::root(vm).get::<SqStrongRef>("Time").ok_or("Time table missing")?;
-			time.call_method(vm, "setVirtualSpeed", (f64::from(speed.0 as f32),))
-		})
+		vm.make_closure(move |speed: Number| c.borrow_mut().speed = speed.0 as f32)
 	};
 	let clear_scene = {
 		let c = clock.clone();
@@ -303,6 +299,19 @@ pub(crate) fn world_entries(
 		("clearScene", clear_scene),
 		("setAmbientColor", set_ambient_color),
 	]
+}
+
+/// `World.setSpeedMult(speed)` that also sets `time`'s virtual speed, itself as the
+/// original's: a script's `Time.setVirtualSpeed` isn't called. Call once `World` is installed.
+pub(crate) fn install_set_speed_mult(vm: &mut SQVM, clock: &Clock, time: super::TimeService) {
+	let c = clock.clone();
+	let set = vm.make_closure(move |speed: Number| {
+		c.borrow_mut().speed = speed.0 as f32;
+		time.set_virtual_speed(f64::from(speed.0 as f32));
+	});
+	if let Some(mut world) = SqTable::root(vm).get::<SqTable>("World") {
+		world.set("setSpeedMult", set);
+	}
 }
 
 /// The world clock's share of a save.

@@ -234,6 +234,10 @@ impl TimeService {
 		self.state.borrow().virtual_speed
 	}
 
+	pub(crate) fn set_virtual_speed(&self, speed: f64) {
+		self.state.borrow_mut().virtual_speed = speed;
+	}
+
 	/// The clocks' share of a save: virtual time and the round. (Real time keeps
 	/// running; scheduled events hold script callbacks and are cleared on load by the
 	/// world state.)

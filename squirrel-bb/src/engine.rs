@@ -119,6 +119,7 @@ impl<S: ScriptSource + 'static> Engine<S> {
 		let time = TimeService::new();
 		time.set_exact_clock(config.exact_clock);
 		time.install(&mut vm);
+		crate::native::world_time::install_set_speed_mult(&mut vm, &natives.world_clock, time.clone());
 		let ui = UiBridge::new();
 		ui.install(&mut vm);
 		let ui_cursor = crate::native::ui_cursor::UiCursor::default();
