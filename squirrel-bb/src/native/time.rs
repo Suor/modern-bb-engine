@@ -54,6 +54,9 @@ const KIND_VIRTUAL: i64 = 1;
 const KIND_ROUNDS: i64 = 3;
 const HAS_ANY: i64 = 4;
 
+/// The error of `Time.clearEvents()` called from a scheduled event's callback.
+const CLEAR_IN_EVENT: &str = "Time.clearEvents() called from a Time.scheduleEvent callback: the original game frees the running event there and corrupts memory or crashes";
+
 /// The clock behind `Time.getExactTime()`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ExactClock {
@@ -142,8 +145,8 @@ impl TimeService {
 	/// As the original's pass (`0x5443e0`): one walk over the pending events in
 	/// scheduling order, firing each due one as it is reached (Rounds events too:
 	/// `setRound` only sets the round, they fire here). Events scheduled by a callback
-	/// wait for the next pass. A callback that calls `Time.clearEvents()` drops the
-	/// rest of the pass as well.
+	/// wait for the next pass. A callback's `Time.clearEvents()` raises
+	/// ([`CLEAR_IN_EVENT`]).
 	pub fn tick(&self, vm: &SQVM, real_delta_ms: f64) {
 		{
 			let mut st = self.state.borrow_mut();
@@ -325,9 +328,17 @@ impl TimeService {
 			// the original's only caller is this native, so nothing else in the engine
 			// drops events: the states' scripts call it on leaving a campaign or a
 			// battle and before a load).
+			// From a callback of the running pass the original frees the event it runs,
+			// then walks freed memory (crashes, probed): an error instead.
 			("clearEvents", {
 				let service = self.clone();
-				vm.make_closure(move || service.clear())
+				vm.make_closure(move || -> Result<(), String> {
+					if service.state.borrow().firing {
+						return Err(CLEAR_IN_EVENT.to_string());
+					}
+					service.clear();
+					Ok(())
+				})
 			}),
 			// Compares against the internal unit (see `KIND_*`), so `Rounds` (2) asks
 			// for frame events and is false for scheduled Rounds events, 3 finds those,

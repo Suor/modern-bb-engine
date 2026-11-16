@@ -347,30 +347,31 @@ fn an_event_scheduled_by_a_callback_waits_for_the_next_pass() {
 }
 
 #[test]
-fn clear_events_in_a_callback_drops_the_rest_of_the_pass() {
-	// What loading a campaign from a scheduled callback does (onBeforeDeserialize calls
-	// Time.clearEvents()). The original frees the events under its own pass there
-	// (undefined behaviour, it has crashed); we drop them, due or not.
+fn clear_events_in_a_callback_raises_and_drops_nothing() {
+	// The original frees the running event under its own pass there and crashes.
 	let (vm, time) = setup();
 	vm.run_script(
 		r#"
 		::fired <- [];
 		Time.scheduleEvent(TimeUnit.Real, 0, function (_u) {
-			::fired.push("first");
-			Time.scheduleEvent(TimeUnit.Real, 0, function (_u) { ::fired.push("scheduled_before_clear"); }, null);
-			Time.clearEvents();
-			Time.scheduleEvent(TimeUnit.Real, 0, function (_u) { ::fired.push("scheduled_after_clear"); }, null);
+			Time.scheduleEvent(TimeUnit.Real, 0, function (_u) { ::fired.push("scheduled"); }, null);
+			try { Time.clearEvents(); ::fired.push("cleared"); } catch (e) { ::fired.push(e); }
 		}, null);
 		Time.scheduleEvent(TimeUnit.Real, 0, function (_u) { ::fired.push("second"); }, null);
-		Time.scheduleEvent(TimeUnit.Virtual, 0, function (_u) { ::fired.push("virtual"); }, null);
+		Time.scheduleEvent(TimeUnit.Virtual, 100, function (_u) { ::fired.push("virtual"); }, null);
 		"#,
 		"sched",
 	)
 	.unwrap();
 	time.tick(&vm, 16.0);
-	vm.run_script(r#"assert(::fired.len() == 1 && ::fired[0] == "first");"#, "pass").expect("rest of the pass dropped");
 	time.tick(&vm, 16.0);
-	vm.run_script(r#"assert(::fired.len() == 2 && ::fired[1] == "scheduled_after_clear");"#, "next").expect("only the post-clear event survives");
+	vm.run_script(
+		r#"assert(::fired.reduce(@(a, b) a + " | " + b) == "Time.clearEvents() called from a Time.scheduleEvent callback: the original game frees the running event there and corrupts memory or crashes | second | scheduled");"#,
+		"pass",
+	)
+	.expect("the clear raised, every event fired");
+	assert_eq!(time.pending_events(), 1);
+	vm.run_script("Time.clearEvents();", "outside").expect("outside a pass it clears");
 	assert_eq!(time.pending_events(), 0);
 }
 

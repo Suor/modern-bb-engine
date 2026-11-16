@@ -23,7 +23,7 @@ No mod can rely on the original's behaviour in these cases.
 | Zone-of-control highlight with 32+ factions | Faction ids from 32 up are mixed up with lower ones | Every faction is itself | No: only the drawn highlight |
 | A sound file that doesn't exist | A critical error, and the game stops running | Logged, and nothing plays | Only broken mods |
 | `Music.isPlaying()` before any music has started | Crashes | Returns false | Only mods that ask that early |
-| `Time.clearEvents()` called from a scheduled event | Crashes (also a load started from one) | Clears every pending event and goes on | Only mods that crash the original |
+| `Time.clearEvents()` called from a scheduled event | Crashes (also a load started from one) | Raises a script error and clears nothing | Only mods that crash the original |
 | `Tactical.getTileSquare` off the battle map | Crashes; vanilla's road builder can reach it (rarely) | Gives the nearest tile on the map and logs a warning | No |
 | Reading a world tile's `Properties`, a brush's `ID` | Crashes | Raises a script error ("does not exist") | Only mods that crash the original |
 | A brush object used after its sprite is gone | Crashes | Still holds its `Name` and `TextureName` | Only mods that crash the original |
