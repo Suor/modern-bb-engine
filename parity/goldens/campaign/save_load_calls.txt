@@ -1,0 +1,7 @@
+# captured 2026-11-16 from Battle Brothers 1.5.2.3 (vanilla + zzz_bbtales_runner.zip)
+PROBE Settings.save = string ok, calls none
+PROBE Settings.saveWithCustomVideoMode = string ok, calls none
+PROBE Settings.load video only = string ok, calls none
+PROBE Settings.load = string ok, calls none
+PROBE saveCampaign = string ok, calls none
+PROBE loadCampaign = string ok, calls none
