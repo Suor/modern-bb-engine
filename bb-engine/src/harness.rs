@@ -474,7 +474,8 @@ const AUTOPLAY: &str = r#"
 				if (bro.isTurnStarted()) agent.onTurnStarted();
 			}
 		}
-		if (!st.isBattleEnded())
+		// A battle left before it's over (exitTactical) is ended as well: the world pauses before its state finishes.
+		if (!st.isBattleEnded() && !st.m.IsBattleEnded)
 		{
 			// Stopped by a world pause (speed 0, the battle not paused): the origin's intro
 			// event, when the battle began within its 1 s (see `run_past_intro`).
