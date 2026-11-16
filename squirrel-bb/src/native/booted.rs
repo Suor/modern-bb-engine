@@ -30,7 +30,7 @@ pub(crate) fn keep(vm: &SQVM) {
 }
 
 /// The native at `path` (`"Time.getDelta"`, `"createVec"`) as kept; the root's while nothing is.
-pub(crate) fn native(vm: &SQVM, path: &str) -> Option<SqStrongRef> {
+pub fn native(vm: &SQVM, path: &str) -> Option<SqStrongRef> {
 	let base = SqTable::registry(vm).get::<SqTable>(KEY).unwrap_or_else(|| SqTable::root(vm));
 	match path.split_once('.') {
 		Some((table, name)) => base.get::<SqTable>(table)?.get::<SqStrongRef>(name),

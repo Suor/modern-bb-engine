@@ -58,6 +58,7 @@ pub use source::{LoadedScript, ScriptSource};
 pub use input_events::{KeyInput, MouseInput};
 pub use key_queue::QueuedInput;
 pub use state_stack::RootState;
+pub use native::booted::native as booted_native;
 pub use native::user_stats::{OfflineStats, UserStats, UserStatsHandle};
 pub use native::{EngineRng, FOG_MASK_SIZE, FogPatch, FogStamp, GameSettings, SavedSettings, Sprites, VideoMode, VideoSettings};
 pub use native::{GAMEPLAY as GAMEPLAY_SETTINGS, VOLUMES as SOUND_VOLUMES};

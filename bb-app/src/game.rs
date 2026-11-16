@@ -13,7 +13,7 @@ use bb_assets::CursorImage;
 use bb_engine::harness::{self, GameEngine};
 use bb_render::world::WorldView;
 use bb_render::{Atlases, Clock, Discard, FrameStats, Gpu, RenderTarget, WorldMap, WorldRenderer};
-use squirrel::{SqStrongRef, SqTable};
+use squirrel::SqTable;
 use squirrel_bb::enums::{Key as EngineKey, KeyModifier, Mouse, MouseState};
 use squirrel_bb::{MouseInput, VideoMode, VideoSettings};
 
@@ -916,9 +916,7 @@ fn cursor_names(engine: &GameEngine) -> Vec<String> {
 /// `World.isVisible()`: the world map is showing (it isn't at the main menu).
 fn world_visible(engine: &GameEngine) -> bool {
 	let vm = engine.vm();
-	SqTable::root(vm)
-		.get::<SqTable>("World")
-		.and_then(|t| t.get::<SqStrongRef>("isVisible"))
+	squirrel_bb::booted_native(vm, "World.isVisible")
 		.and_then(|f| f.call_ret::<bool, _>(vm, ()).ok().flatten())
 		.unwrap_or(true)
 }
@@ -926,9 +924,7 @@ fn world_visible(engine: &GameEngine) -> bool {
 /// `Tactical.isVisible()`: a battle is showing.
 fn tactical_visible(engine: &GameEngine) -> bool {
 	let vm = engine.vm();
-	SqTable::root(vm)
-		.get::<SqTable>("Tactical")
-		.and_then(|t| t.get::<SqStrongRef>("isVisible"))
+	squirrel_bb::booted_native(vm, "Tactical.isVisible")
 		.and_then(|f| f.call_ret::<bool, _>(vm, ()).ok().flatten())
 		.unwrap_or(false)
 }
