@@ -93,6 +93,15 @@ impl Flights {
 		self.answered(|flight| std::mem::take(&mut flight.trim).then_some("trim"));
 	}
 
+	/// The renderer's trim couldn't be sent: the flight doesn't wait on it.
+	pub fn trim_unsent(&self) {
+		let mut state = self.state();
+		if let Some(flight) = state.flight.as_mut() {
+			flight.trim = false;
+		}
+		finish_if_done(&mut state);
+	}
+
 	/// A part answered, if `take` finds it in the flight: noted, and the flight
 	/// finished with its last.
 	fn answered(&self, take: impl FnOnce(&mut Flight) -> Option<&'static str>) {
@@ -100,15 +109,19 @@ impl Flights {
 		let Some(flight) = state.flight.as_mut() else { return };
 		let Some(part) = take(flight) else { return };
 		flight.parts.push((part, flight.sent.elapsed()));
-		if flight.methods.is_empty() && !flight.trim {
-			let flight = state.flight.take().expect("a flight");
-			state.done.push(Released { total: flight.sent.elapsed(), parts: flight.parts });
-		}
+		finish_if_done(&mut state);
 	}
 
 	/// The releases finished since the last call.
 	pub fn take_done(&self) -> Vec<Released> {
 		std::mem::take(&mut self.state().done)
+	}
+}
+
+fn finish_if_done(state: &mut State) {
+	if state.flight.as_ref().is_some_and(|f| f.methods.is_empty() && !f.trim) {
+		let flight = state.flight.take().expect("a flight");
+		state.done.push(Released { total: flight.sent.elapsed(), parts: flight.parts });
 	}
 }
 
@@ -149,6 +162,17 @@ mod tests {
 		assert_eq!(done.len(), 1);
 		assert_eq!(done[0].parts.iter().map(|(p, _)| *p).collect::<Vec<_>>(), ["pressure", "trim", "collect"]);
 		assert!(!flights.in_flight());
+	}
+
+	#[test]
+	fn a_trim_not_sent_isn_t_waited_on() {
+		let flights = Flights::default();
+		flights.start(Instant::now(), vec![(3, "collect")], true);
+		flights.method_done(3);
+		assert!(flights.in_flight());
+		flights.trim_unsent();
+		assert!(!flights.in_flight());
+		assert_eq!(flights.take_done()[0].parts.iter().map(|(p, _)| *p).collect::<Vec<_>>(), ["collect"]);
 	}
 
 	#[test]

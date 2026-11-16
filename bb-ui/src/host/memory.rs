@@ -97,26 +97,29 @@ static NEXT_MESSAGE: AtomicI32 = AtomicI32::new(1 << 24);
 /// `observed`: an observer passes them on), which times it.
 pub(super) fn release(host: &BrowserHost, frame: Option<&Frame>, parts: Parts, flights: &Flights, observed: bool) {
 	let sent = Instant::now();
+	let pressure = parts.pressure.map(|level| (NEXT_MESSAGE.fetch_add(1, Ordering::Relaxed), level));
+	let collect = parts.collect.then(|| NEXT_MESSAGE.fetch_add(1, Ordering::Relaxed));
 	let mut methods = Vec::new();
-	let mut call = |method: &str, params: Option<&mut DictionaryValue>, part: &'static str| {
-		let id = NEXT_MESSAGE.fetch_add(1, Ordering::Relaxed);
-		host.execute_dev_tools_method(id, Some(&method.into()), params);
-		if observed {
-			methods.push((id, part));
-		}
-	};
-	if let Some(level) = parts.pressure {
-		let mut pressure = dictionary_value_create();
-		if let Some(params) = pressure.as_mut() {
+	if observed {
+		methods.extend(pressure.map(|(id, _)| (id, "pressure")));
+		methods.extend(collect.map(|id| (id, "collect")));
+	}
+	let trim = parts.trim && frame.is_some();
+	// Before any part is sent: the pressure's answer can come back before the next call.
+	flights.start(sent, methods, trim);
+	if let Some((id, level)) = pressure {
+		let mut params = dictionary_value_create();
+		if let Some(params) = params.as_mut() {
 			params.set_string(Some(&"level".into()), Some(&level.into()));
 		}
-		call("Memory.simulatePressureNotification", pressure.as_mut(), "pressure");
+		host.execute_dev_tools_method(id, Some(&"Memory.simulatePressureNotification".into()), params.as_mut());
 	}
-	if parts.collect {
-		call("HeapProfiler.collectGarbage", None, "collect");
+	if let Some(id) = collect {
+		host.execute_dev_tools_method(id, Some(&"HeapProfiler.collectGarbage".into()), None);
 	}
-	let trim = parts.trim && frame.is_some_and(|frame| ipc::send(frame, ProcessId::RENDERER, ipc::TRIM, &[]));
-	flights.start(sent, methods, trim);
+	if trim && !frame.is_some_and(|frame| ipc::send(frame, ProcessId::RENDERER, ipc::TRIM, &[])) {
+		flights.trim_unsent();
+	}
 }
 
 /// In the renderer: give the C allocator's free memory back to the system, from every
