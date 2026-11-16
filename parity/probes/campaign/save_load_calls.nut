@@ -3,7 +3,9 @@
 // script's replacement, as `root_calls` does for the rest. Around the settings' natives
 // every call of a wrapper counts; around the campaign's save and load, whose scripts call
 // the wrapped functions themselves, only a call from a native frame or from no frame.
-// A group of its own: it loads a campaign, so it runs last.
+// A group of its own: it loads a campaign, so it runs last. The load goes as a player's, from
+// the loading screen's callback: from a scheduled event (the runner's frame) the load's
+// Time.clearEvents() crashes the original.
 
 local R = {
 	Window = null,
@@ -64,4 +66,27 @@ around("Settings.saveWithCustomVideoMode", false, @() ::Settings.saveWithCustomV
 around("Settings.load video only", false, @() ::Settings.load(true));
 around("Settings.load", false, @() ::Settings.load(false));
 around("saveCampaign", true, @() ::World.State.saveCampaign("bb_probe_save_load_calls"));
-around("loadCampaign", true, @() ::World.State.loadCampaign("bb_probe_save_load_calls"));
+
+// The window stays open until the world is back; the load clears the events, the poll is scheduled again.
+::BbProbe.DeferDone = true;
+local clear = ::Time.clearEvents;
+R.poll <- @() ::Time.scheduleEvent(::TimeUnit.Real, 100, R.check, null);
+R.check <- function( _ )
+{
+	if (::World.State.m.CampaignToLoadFileName != null || ::LoadingScreen.isVisible()) return R.poll();
+	::Time.clearEvents = clear;
+	R.Window = null;
+	::logInfo("PROBE loadCampaign = string ok, calls " + hits());
+	::BbProbe.done();
+};
+::Time.clearEvents = function()
+{
+	clear.call(::Time);
+	R.poll();
+};
+R.Hits = {};
+R.Window = "loadCampaign";
+R.NativeOnly = true;
+::World.State.m.CampaignLoadTime = -100.0;
+::World.State.campaign_menu_module_onLoadPressed("bb_probe_save_load_calls");
+R.poll();
