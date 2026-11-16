@@ -37,6 +37,7 @@ pub struct DatArchive {
 	/// The archive's file: entries are read from it at their offsets.
 	file: SharedFile,
 	path: PathBuf,
+	real_path: PathBuf,
 	/// The `zip` crate's reading of the archive, for an entry whose sizes come only after
 	/// its data (rare: a zip written as a stream), opened when one is first read.
 	whole: Option<ZipArchive<SharedFile>>,
@@ -48,13 +49,19 @@ impl DatArchive {
 	/// whole).
 	pub fn open(path: impl AsRef<Path>) -> io::Result<Self> {
 		let path = path.as_ref().to_path_buf();
-		let (index, file) = opened::open(&path)?;
-		Ok(DatArchive { index, file, path, whole: None })
+		let (index, file, real_path) = opened::open(&path)?;
+		Ok(DatArchive { index, file, path, real_path, whole: None })
 	}
 
 	/// The path the archive was opened from.
 	pub fn path(&self) -> &Path {
 		&self.path
+	}
+
+	/// The archive's file, symlinks resolved: what the caches know its entries by, so a
+	/// launch that links the same archives from a dir of its own reuses what others cached.
+	pub fn real_path(&self) -> &Path {
+		&self.real_path
 	}
 
 	/// The entry at `name`, if it's there and can be read (not encrypted).

@@ -145,7 +145,7 @@ impl DatScriptSource {
 		if let (Some(cache), Some(context)) = (&self.cache, context)
 			&& let Some((crc32, size)) = archive.entry_meta(nut)
 		{
-			let archive_path = archive.path().to_path_buf();
+			let archive_path = archive.real_path().to_path_buf();
 			let key = CacheKey {
 				kind: "nut",
 				archive: &archive_path,
@@ -168,7 +168,7 @@ impl DatScriptSource {
 			return transcode_cnut(&archive.read(cnut)?).ok().map(LoadedScript::Bytecode);
 		};
 		let (crc32, size) = archive.entry_meta(cnut)?;
-		let archive_path = archive.path().to_path_buf();
+		let archive_path = archive.real_path().to_path_buf();
 		let key = CacheKey {
 			kind: "cnut",
 			archive: &archive_path,
@@ -214,7 +214,7 @@ impl ScriptSource for DatScriptSource {
 		let Some((crc32, size)) = archive.entry_meta(&nut) else {
 			return;
 		};
-		let archive_path = archive.path().to_path_buf();
+		let archive_path = archive.real_path().to_path_buf();
 		let key = CacheKey {
 			kind: "nut",
 			archive: &archive_path,

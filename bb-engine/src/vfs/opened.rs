@@ -23,19 +23,20 @@ struct Opened {
 
 static OPENED: OnceLock<Mutex<HashMap<PathBuf, Opened>>> = OnceLock::new();
 
-/// The archive at `path`: its index, parsed once per process, and its file.
-pub(super) fn open(path: &Path) -> io::Result<(Arc<Index>, SharedFile)> {
+/// The archive at `path`: its index, parsed once per process, its file, and its path with
+/// symlinks resolved.
+pub(super) fn open(path: &Path) -> io::Result<(Arc<Index>, SharedFile, PathBuf)> {
 	let meta = std::fs::metadata(path)?;
 	let (len, modified) = (meta.len(), meta.modified().ok());
 	let key = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
 	let mut opened = OPENED.get_or_init(Default::default).lock().unwrap_or_else(|e| e.into_inner());
 	if let Some(o) = opened.get(&key).filter(|o| o.len == len && o.modified == modified) {
-		return Ok((o.index.clone(), o.file.clone()));
+		return Ok((o.index.clone(), o.file.clone(), key));
 	}
 	let file = SharedFile::new(File::open(path)?)?;
 	let index = Arc::new(central_dir::read(&mut file.clone())?);
 	opened.insert(
-		key,
+		key.clone(),
 		Opened {
 			len,
 			modified,
@@ -43,7 +44,7 @@ pub(super) fn open(path: &Path) -> io::Result<(Arc<Index>, SharedFile)> {
 			file: file.clone(),
 		},
 	);
-	Ok((index, file))
+	Ok((index, file, key))
 }
 
 #[cfg(test)]
@@ -76,6 +77,20 @@ mod tests {
 		assert_eq!(three.read("a.txt").as_deref(), Some(&b"rewritten"[..]));
 		assert_eq!(three.read("b.txt"), None);
 		let _ = std::fs::remove_file(&path);
+	}
+
+	#[cfg(unix)]
+	#[test]
+	fn an_archive_linked_from_elsewhere_has_its_files_path() {
+		let dir = std::env::temp_dir().join(format!("bb-linked-{}", std::process::id()));
+		std::fs::create_dir_all(&dir).unwrap();
+		let (path, link) = (dir.join("data_001.dat"), dir.join("link.dat"));
+		write_zip(&path, &[("a.txt", b"a")]);
+		std::os::unix::fs::symlink(&path, &link).unwrap();
+		let real = std::fs::canonicalize(&path).unwrap();
+		assert_eq!(DatArchive::open(&link).unwrap().real_path(), real);
+		assert_eq!(DatArchive::open(&path).unwrap().real_path(), real);
+		let _ = std::fs::remove_dir_all(&dir);
 	}
 
 	#[test]
