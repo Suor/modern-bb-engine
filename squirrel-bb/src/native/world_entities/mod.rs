@@ -310,8 +310,8 @@ impl EntityMachine {
 /// in 900 frames. The original's scene update and render both check the scene's
 /// flags first.
 pub(super) fn scene_shown(vm: &SQVM) -> Result<bool, String> {
-	let world = SqTable::root(vm).get::<SqStrongRef>("World").ok_or("World missing")?;
-	Ok(world.call_method_ret::<bool, _>(vm, "isVisible", ())?.unwrap_or(true))
+	let is_visible = crate::native::booted::native(vm, "World.isVisible").ok_or("World.isVisible missing")?;
+	Ok(is_visible.call_ret::<bool, _>(vm, ())?.unwrap_or(true))
 }
 
 /// Ignore a "no method" error (an optional hook the entity didn't define), but
@@ -518,11 +518,9 @@ fn vec_xy(vm: &SQVM, v: &SqStrongRef, native: &str) -> Result<(f64, f64), String
 
 /// The axial tile under a world pixel position (`World.worldToTile`).
 fn tile_under(vm: &SQVM, pos: &SqStrongRef) -> Result<(i64, i64), String> {
-	let world = SqTable::root(vm)
-		.get::<SqStrongRef>("World")
-		.ok_or("World table missing")?;
-	let coords = world
-		.call_method_ret::<SqStrongRef, _>(vm, "worldToTile", (pos.clone(),))?
+	let world_to_tile = crate::native::booted::native(vm, "World.worldToTile").ok_or("World.worldToTile missing")?;
+	let coords = world_to_tile
+		.call_ret::<SqStrongRef, _>(vm, (pos.clone(),))?
 		.ok_or("worldToTile returned null")?;
 	let q = coords.get_member::<i64>(vm, "X").ok_or("worldToTile: no X")?;
 	let r = coords.get_member::<i64>(vm, "Y").ok_or("worldToTile: no Y")?;
@@ -562,11 +560,9 @@ impl QueryEntity for EntityRecord {
 
 /// `World.getTile(q, r).IsOccupied = occupied`.
 fn set_tile_occupied(vm: &SQVM, q: i64, r: i64, occupied: bool) -> Result<(), String> {
-	let world = SqTable::root(vm)
-		.get::<SqStrongRef>("World")
-		.ok_or("World table missing")?;
-	let tile = world
-		.call_method_ret::<SqStrongRef, _>(vm, "getTile", (q, r))?
+	let get_tile = crate::native::booted::native(vm, "World.getTile").ok_or("World.getTile missing")?;
+	let tile = get_tile
+		.call_ret::<SqStrongRef, _>(vm, (q, r))?
 		.ok_or("spawnLocation: no tile at the entity's coords")?;
 	tile.set_member(vm, "IsOccupied", occupied)
 }
@@ -706,7 +702,7 @@ fn build_label_class(vm: &mut SQVM) -> SqClass<LabelData> {
 		.property_obj_rw(
 			"Offset",
 			|l: &LabelData, vm: &SQVM| {
-				let create = SqTable::root(vm).get::<SqStrongRef>("createVec")?;
+				let create = crate::native::booted::native(vm, "createVec")?;
 				create.call_ret::<SqStrongRef, _>(vm, l.offset).ok().flatten()
 			},
 			noted_obj(|l: &mut LabelData, vm: &SQVM, v: SqStrongRef| {
@@ -1237,9 +1233,8 @@ impl WorldEntities {
 
 	/// Whether footprints show: the gameplay setting `ShowTracking`.
 	pub(crate) fn tracking(vm: &SQVM) -> bool {
-		SqTable::root(vm)
-			.get::<SqStrongRef>("Settings")
-			.and_then(|s| s.call_method_ret::<SqStrongRef, _>(vm, "getTempGameplaySettings", ()).ok().flatten())
+		crate::native::booted::native(vm, "Settings.getTempGameplaySettings")
+			.and_then(|f| f.call_ret::<SqStrongRef, _>(vm, ()).ok().flatten())
 			.and_then(|t| t.get_member::<bool>(vm, "ShowTracking"))
 			.unwrap_or(true)
 	}

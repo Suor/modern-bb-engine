@@ -196,9 +196,7 @@ pub(crate) fn install(vm: &mut SQVM) -> VideoSettings {
 /// A field of `Settings.getGameplaySettings()` (e.g. `ShowOrientationOverlays`),
 /// `default` if missing.
 pub(crate) fn gameplay_flag(vm: &SQVM, name: &str, default: bool) -> bool {
-	SqTable::root(vm)
-		.get::<SqTable>("Settings")
-		.and_then(|s| s.get::<SqStrongRef>("getGameplaySettings"))
+	crate::native::booted::native(vm, "Settings.getGameplaySettings")
 		.and_then(|f| f.call_ret::<SqStrongRef, _>(vm, ()).ok().flatten())
 		.and_then(|t| t.get_member::<bool>(vm, name))
 		.unwrap_or(default)
@@ -206,9 +204,7 @@ pub(crate) fn gameplay_flag(vm: &SQVM, name: &str, default: bool) -> bool {
 
 /// A field of `Settings.getTempGameplaySettings()` (e.g. `HideTrees`), false if missing.
 pub(crate) fn temp_gameplay_flag(vm: &SQVM, name: &str) -> bool {
-	SqTable::root(vm)
-		.get::<SqTable>("Settings")
-		.and_then(|s| s.get::<SqStrongRef>("getTempGameplaySettings"))
+	crate::native::booted::native(vm, "Settings.getTempGameplaySettings")
 		.and_then(|f| f.call_ret::<SqStrongRef, _>(vm, ()).ok().flatten())
 		.and_then(|t| t.get_member::<bool>(vm, name))
 		.unwrap_or(false)

@@ -27,7 +27,7 @@
 //! which nothing else reads (see `docs/differences.md`).
 
 use bb_assets::BrushSprite;
-use squirrel::{Number, SQVM, SqStrongRef, SqTable};
+use squirrel::{Number, SQVM};
 
 use crate::native::Sprites;
 
@@ -252,9 +252,8 @@ fn timing_of(sprites: &Sprites, name: &str) -> Option<Timing> {
 
 /// The virtual millisecond (`Time`'s `+0x18`: virtual seconds × 1000, truncated).
 pub(crate) fn virtual_ms(vm: &SQVM) -> u32 {
-	SqTable::root(vm)
-		.get::<SqStrongRef>("Time")
-		.and_then(|t| t.call_method_ret::<Number, _>(vm, "getVirtualTimeF", ()).ok().flatten())
+	crate::native::booted::native(vm, "Time.getVirtualTimeF")
+		.and_then(|f| f.call_ret::<Number, _>(vm, ()).ok().flatten())
 		.map_or(0, |n| (n.0 * 1000.0) as u32)
 }
 

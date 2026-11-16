@@ -40,8 +40,8 @@ pub(super) fn cloud_settings(vm: &SQVM, table: &SqStrongRef) -> CloudSettings {
 /// The centres of the map's first and last tiles (`World.getMapSize()`), or `None`
 /// without a map.
 fn map_span(vm: &SQVM) -> Result<Option<MapSpan>, String> {
-	let world = SqTable::root(vm).get::<SqStrongRef>("World").ok_or("World missing")?;
-	let size = world.call_method_ret::<SqStrongRef, _>(vm, "getMapSize", ())?;
+	let get_map_size = super::booted::native(vm, "World.getMapSize").ok_or("World.getMapSize missing")?;
+	let size = get_map_size.call_ret::<SqStrongRef, _>(vm, ())?;
 	let dim = |axis: &str| size.as_ref().and_then(|s| s.get_member::<Number>(vm, axis)).map_or(0, |n| n.0 as i64);
 	let (w, h) = (dim("X"), dim("Y"));
 	if w <= 0 || h <= 0 {
@@ -174,8 +174,7 @@ pub(crate) fn install(
 	let step = vm.make_closure(|vm: &SQVM, from: Retained, to: Retained, max: Number| -> Result<Option<SqStrongRef>, String> {
 		let xy = |v: &SqStrongRef| super::vec::position(vm, v, "World.move");
 		let (x, y) = super::world_layout::step_toward(xy(&from.0)?, xy(&to.0)?, max.0);
-		Ok(SqTable::root(vm)
-			.get::<SqStrongRef>("createVec")
+		Ok(crate::native::booted::native(vm, "createVec")
 			.and_then(|create| create.call_ret::<SqStrongRef, _>(vm, (x as f64, y as f64)).ok().flatten()))
 	});
 	let mut world = SqTable::new(vm);

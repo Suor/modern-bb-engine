@@ -9,7 +9,7 @@
 //! battle starts (its road runs down the edge) where the original's game dies.
 //! `isValidTileSquare` and everything inside the engine stay strictly checked.
 
-use squirrel::{SQVM, SqStrongRef, SqTable};
+use squirrel::SQVM;
 
 use super::Grid;
 
@@ -33,7 +33,7 @@ pub(super) fn square_or_nearest(grid: &Grid, vm: &SQVM, x: i64, y: i64) -> Resul
 
 /// Log `message` as the scripts' `logWarning` does.
 fn warn(vm: &SQVM, message: &str) {
-	if let Some(log) = SqTable::root(vm).get::<SqStrongRef>("logWarning") {
+	if let Some(log) = crate::native::booted::native(vm, "logWarning") {
 		let _ = log.call(vm, (message.to_string(),));
 	}
 }

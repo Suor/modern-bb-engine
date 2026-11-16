@@ -14,7 +14,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use squirrel::{Retained, SQVM, SqStrongRef, SqTable};
+use squirrel::{Retained, SQVM, SqStrongRef};
 
 use super::{EntityMachine, SpriteData, vec_xy};
 
@@ -81,8 +81,7 @@ pub(super) fn entity_methods(m: &Machine, vm: &mut SQVM) -> Vec<(&'static str, S
 		vm.make_closure(move |vm: &SQVM, name: &str| -> Result<Option<SqStrongRef>, String> {
 			let mut offset = (0.0, 0.0);
 			with_sprite(&m, vm, &name, |s| offset = s.offset);
-			let create_vec = SqTable::root(vm)
-				.get::<SqStrongRef>("createVec")
+			let create_vec = crate::native::booted::native(vm, "createVec")
 				.ok_or("getSpriteOffset: createVec missing")?;
 			create_vec.call_ret::<SqStrongRef, _>(vm, offset)
 		})

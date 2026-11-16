@@ -20,7 +20,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use squirrel::{Number, Retained, SQVM, SqArray, SqStrongRef, SqTable};
+use squirrel::{Number, Retained, SQVM, SqArray, SqStrongRef};
 
 use super::{EntityMachine, vec_xy};
 use crate::native::world_query;
@@ -129,9 +129,8 @@ impl Footprints {
 
 /// `Time.getVirtualTimeF()`.
 pub(super) fn virtual_time(vm: &SQVM) -> f32 {
-	SqTable::root(vm)
-		.get::<SqStrongRef>("Time")
-		.and_then(|t| t.call_method_ret::<Number, _>(vm, "getVirtualTimeF", ()).ok().flatten())
+	crate::native::booted::native(vm, "Time.getVirtualTimeF")
+		.and_then(|f| f.call_ret::<Number, _>(vm, ()).ok().flatten())
 		.map_or(0.0, |n| n.0 as f32)
 }
 

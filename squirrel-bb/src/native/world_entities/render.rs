@@ -27,7 +27,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use squirrel::{Number, SQVM, SqStrongRef, SqTable};
+use squirrel::{Number, SQVM, SqStrongRef};
 
 use super::{EntityMachine, ignore_missing, view};
 
@@ -102,14 +102,14 @@ type Machine = Rc<RefCell<EntityMachine>>;
 
 /// `World.isUsingFogOfWar()`.
 fn fog_on(vm: &SQVM) -> Result<bool, String> {
-	let world = SqTable::root(vm).get::<SqStrongRef>("World").ok_or("World missing")?;
-	Ok(world.call_method_ret::<bool, _>(vm, "isUsingFogOfWar", ())?.unwrap_or(true))
+	let is_using = crate::native::booted::native(vm, "World.isUsingFogOfWar").ok_or("World.isUsingFogOfWar missing")?;
+	Ok(is_using.call_ret::<bool, _>(vm, ())?.unwrap_or(true))
 }
 
 /// `Time.getRealTime()` (ms).
 pub(super) fn real_time_ms(vm: &SQVM) -> Result<i64, String> {
-	let time = SqTable::root(vm).get::<SqStrongRef>("Time").ok_or("Time missing")?;
-	Ok(time.call_method_ret::<Number, _>(vm, "getRealTime", ())?.map_or(0, |n| n.0 as i64))
+	let get_real_time = crate::native::booted::native(vm, "Time.getRealTime").ok_or("Time.getRealTime missing")?;
+	Ok(get_real_time.call_ret::<Number, _>(vm, ())?.map_or(0, |n| n.0 as i64))
 }
 
 /// One render pass over the live entities, in id order. No machine borrow is held
@@ -232,11 +232,10 @@ pub(super) fn world_methods(m: &Machine, vm: &mut SQVM) -> Vec<(String, SqStrong
 				let machine = m.borrow();
 				(machine.player_view.pos, machine.player_view.vision_radius)
 			};
-			let root = SqTable::root(vm);
-			let create_vec = root.get::<SqStrongRef>("createVec").ok_or("createVec missing")?;
+			let create_vec = crate::native::booted::native(vm, "createVec").ok_or("createVec missing")?;
 			let at = create_vec.call_ret::<SqStrongRef, _>(vm, pos)?.ok_or("createVec returned null")?;
-			let world = root.get::<SqStrongRef>("World").ok_or("World missing")?;
-			world.call_method(vm, "uncoverFogOfWar", (at, f64::from(radius)))
+			let uncover = crate::native::booted::native(vm, "World.uncoverFogOfWar").ok_or("World.uncoverFogOfWar missing")?;
+			uncover.call(vm, (at, f64::from(radius)))
 		})
 	};
 	vec![("prepareRender".to_string(), prepare_render), ("render".to_string(), render)]

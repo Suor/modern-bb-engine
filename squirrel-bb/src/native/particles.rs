@@ -411,13 +411,12 @@ pub(crate) fn parse_effect(vm: &SQVM, args: &[Retained]) -> Result<Option<Effect
 
 /// `Time.getRealTime()` (ms) and `Time.getRealTimeF()` (s).
 fn real_now(vm: &SQVM) -> (i64, f32) {
-	let time = SqTable::root(vm).get::<SqStrongRef>("Time");
 	let call = |name: &str| {
-		time.as_ref()
-			.and_then(|t| t.call_method_ret::<Number, _>(vm, name, ()).ok().flatten())
+		super::booted::native(vm, name)
+			.and_then(|f| f.call_ret::<Number, _>(vm, ()).ok().flatten())
 			.map_or(0.0, |n| n.0)
 	};
-	(call("getRealTime") as i64, call("getRealTimeF") as f32)
+	(call("Time.getRealTime") as i64, call("Time.getRealTimeF") as f32)
 }
 
 /// Advance `particles` to now (`Time`'s real clock), `dt` seconds after the last frame.

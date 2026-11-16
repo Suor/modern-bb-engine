@@ -930,6 +930,6 @@ impl TacticalGrid {
 
 /// `createVec(x, y)`.
 fn vec(vm: &SQVM, (x, y): (f64, f64)) -> Result<Option<SqStrongRef>, String> {
-	let create = SqTable::root(vm).get::<SqStrongRef>("createVec").ok_or("createVec missing")?;
+	let create = crate::native::booted::native(vm, "createVec").ok_or("createVec missing")?;
 	create.call_ret::<SqStrongRef, _>(vm, (x, y))
 }

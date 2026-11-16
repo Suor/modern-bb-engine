@@ -318,8 +318,7 @@ fn create_unit(
 ) -> Result<(SqStrongRef, usize), String> {
 	let instantiate = machine.borrow().instantiate.clone();
 	let entity = instantiate(vm, path)?;
-	let is_actor = SqTable::root(vm)
-		.get::<SqStrongRef>("isKindOf")
+	let is_actor = crate::native::booted::native(vm, "isKindOf")
 		.and_then(|f| f.call_ret::<bool, _>(vm, (entity.clone(), "actor".to_string())).ok().flatten())
 		.unwrap_or(false);
 	let record_idx = {
@@ -875,7 +874,7 @@ impl TacticalEntities {
 					let m = m.borrow();
 					m.record(vm.this_identity()).map_or((0.0, 0.0), |r| r.local)
 				};
-				let create_vec = SqTable::root(vm).get::<SqStrongRef>("createVec").ok_or("createVec missing")?;
+				let create_vec = crate::native::booted::native(vm, "createVec").ok_or("createVec missing")?;
 				create_vec.call_ret::<SqStrongRef, _>(vm, (x, y))
 			})
 		};
@@ -927,9 +926,7 @@ impl TacticalEntities {
 					(Some(h), Some(c)) => c.with_payload(vm, &h, |s| s.offset).unwrap_or((0.0, 0.0)),
 					_ => (0.0, 0.0),
 				};
-				let create_vec = SqTable::root(vm)
-					.get::<SqStrongRef>("createVec")
-					.ok_or("getSpriteOffset: createVec missing")?;
+				let create_vec = crate::native::booted::native(vm, "createVec").ok_or("getSpriteOffset: createVec missing")?;
 				create_vec.call_ret::<SqStrongRef, _>(vm, offset)
 			})
 		};
@@ -1025,9 +1022,7 @@ impl TacticalEntities {
 					let m = m.borrow();
 					m.record(vm.this_identity()).map_or((0.0, 0.0), |r| m.world_pos(r))
 				};
-				let create_vec = SqTable::root(vm)
-					.get::<SqStrongRef>("createVec")
-					.ok_or("getPos: createVec missing")?;
+				let create_vec = crate::native::booted::native(vm, "createVec").ok_or("getPos: createVec missing")?;
 				create_vec.call_ret::<SqStrongRef, _>(vm, (x, y))
 			})
 		};

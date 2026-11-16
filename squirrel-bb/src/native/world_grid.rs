@@ -1212,7 +1212,7 @@ fn tile_to_world_overloads(vm: &mut SQVM, grid: &Rc<RefCell<GridState>>) -> Vec<
 			return Ok(Some(vec2f.instantiate(vm, super::vec::Vec2f { x, y })));
 		}
 		// A grid the host gave no class (standalone): the script's `createVec`.
-		let create_vec = SqTable::root(vm).get::<SqStrongRef>("createVec").ok_or("tileToWorld: createVec missing")?;
+		let create_vec = super::booted::native(vm, "createVec").ok_or("tileToWorld: createVec missing")?;
 		create_vec.call_ret::<SqStrongRef, _>(vm, (x, y))
 	}
 	let g = grid.clone();
@@ -1404,8 +1404,7 @@ fn build_world_tile_class(vm: &mut SQVM) -> SqClass<TileHandle> {
 		.property_obj("Pos", |t, vm| {
 			let (c, r) = t.with(|d| (d.col, d.row));
 			let (x, y) = world_layout::tile_pos(c, r);
-			SqTable::root(vm)
-				.get::<SqStrongRef>("createVec")
+			crate::native::booted::native(vm, "createVec")
 				.and_then(|create| create.call_ret::<SqStrongRef, _>(vm, (x, y)).ok().flatten())
 				.unwrap_or_else(|| xy_table(vm, x as i64, y as i64))
 		});
@@ -1449,8 +1448,7 @@ fn build_world_tile_class(vm: &mut SQVM) -> SqClass<TileHandle> {
 			"getPosBetweenThisAnd",
 			|t: &mut TileHandle, vm: &SQVM, other: Native<TileHandle>| -> Option<SqStrongRef> {
 				let (x, y) = between(t, &other.0);
-				SqTable::root(vm)
-					.get::<SqStrongRef>("createVec")
+				crate::native::booted::native(vm, "createVec")
 					.and_then(|create| create.call_ret::<SqStrongRef, _>(vm, (x as f64, y as f64)).ok().flatten())
 			},
 		)

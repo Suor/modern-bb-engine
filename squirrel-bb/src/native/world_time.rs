@@ -246,10 +246,8 @@ pub(crate) fn world_entries(
 		let c = clock.clone();
 		let on_update = on_update.clone();
 		vm.make_closure(move |vm: &SQVM| -> Result<(), String> {
-			let time = SqTable::root(vm).get::<SqStrongRef>("Time").ok_or("Time table missing")?;
-			let delta = time
-				.call_method_ret::<Number, _>(vm, "getDelta", ())?
-				.map_or(0.0, |n| n.0);
+			let get_delta = super::booted::native(vm, "Time.getDelta").ok_or("Time.getDelta missing")?;
+			let delta = get_delta.call_ret::<Number, _>(vm, ())?.map_or(0.0, |n| n.0);
 			c.borrow_mut().advance(delta as f32);
 			// Clouds and waves move with the same update (`0x4fdc30`).
 			let speed = c.borrow().speed;

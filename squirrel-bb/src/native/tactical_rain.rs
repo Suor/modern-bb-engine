@@ -346,8 +346,7 @@ impl TacticalRain {
 				}
 				t.set("ScaleDropsWithTime", d.scale_with_time);
 				t.set("SplatBrush", d.splat_brush.clone());
-				let dir = SqTable::root(vm)
-					.get::<SqStrongRef>("createVec")
+				let dir = crate::native::booted::native(vm, "createVec")
 					.and_then(|f| f.call_ret::<SqStrongRef, _>(vm, (f64::from(d.direction.0), f64::from(d.direction.1))).ok().flatten())
 					.ok_or("createRainSettings: no createVec")?;
 				t.set("Direction", dir);
@@ -406,9 +405,7 @@ impl TacticalRain {
 					inner.call(vm, ())?;
 				}
 				// `Time.getDelta()`: the frame's virtual seconds (none while paused).
-				let delta = SqTable::root(vm)
-					.get::<SqTable>("Time")
-					.and_then(|t| t.get::<SqStrongRef>("getDelta"))
+				let delta = crate::native::booted::native(vm, "Time.getDelta")
 					.and_then(|f| f.call_ret::<Number, _>(vm, ()).ok().flatten())
 					.map_or(0.0, |n| n.0 as f32);
 				let mut s = st.borrow_mut();

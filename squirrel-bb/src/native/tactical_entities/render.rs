@@ -7,7 +7,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use squirrel::{Number, Retained, SQVM, SqStrongRef, SqTable};
+use squirrel::{Number, Retained, SQVM, SqStrongRef};
 
 use super::{TacticalMachine, ignore_missing};
 use crate::native::tactical_grid::visibility::PLAYER;
@@ -16,10 +16,7 @@ type Machine = Rc<RefCell<TacticalMachine>>;
 
 /// `Time.getVirtualTimeF()`, the clock sprite animations run on.
 pub(super) fn virtual_seconds(vm: &SQVM) -> Result<f64, String> {
-	let f = SqTable::root(vm)
-		.get::<SqTable>("Time")
-		.and_then(|t| t.get::<SqStrongRef>("getVirtualTimeF"))
-		.ok_or("moveSpriteOffset: no Time.getVirtualTimeF")?;
+	let f = crate::native::booted::native(vm, "Time.getVirtualTimeF").ok_or("moveSpriteOffset: no Time.getVirtualTimeF")?;
 	Ok(f.call_ret::<Number, _>(vm, ())?.map_or(0.0, |n| n.0))
 }
 

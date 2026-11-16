@@ -4,7 +4,7 @@
 //! Reason: "<message>" line:<l> column:<c>.` and nothing runs; a runtime error goes to
 //! the VM's error handler like any script error, and the caller carries on.
 
-use squirrel::{SQVM, SqStrongRef, SqTable};
+use squirrel::{SQVM, SqTable};
 
 /// Register `execute` into the root table.
 pub(crate) fn install(vm: &mut SQVM) {
@@ -19,7 +19,7 @@ pub(crate) fn install(vm: &mut SQVM) {
 					"Failed to execute string \"{code}\". Reason: \"{}\" line:{} column:{}.",
 					e.message, e.line, e.column
 				);
-				if let Some(log) = SqTable::root(vm).get::<SqStrongRef>("logError") {
+				if let Some(log) = super::booted::native(vm, "logError") {
 					let _ = log.call(vm, (message,));
 				}
 			}

@@ -5,7 +5,7 @@
 //! screen y grows down where world y grows up; `zoom` is world units per pixel. Pixels
 //! are whole and the arithmetic is `f32`, as there.
 
-use squirrel::{Number, SQVM, SqStrongRef, SqTable};
+use squirrel::{Number, SQVM, SqStrongRef};
 
 /// The screen's size in pixels.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -17,9 +17,7 @@ pub(crate) struct Screen {
 impl Screen {
 	/// The video mode (`Settings.getVideoMode()`), 1920x1080 if unreadable.
 	pub(crate) fn of(vm: &SQVM) -> Screen {
-		let mode = SqTable::root(vm)
-			.get::<SqTable>("Settings")
-			.and_then(|s| s.get::<SqStrongRef>("getVideoMode"))
+		let mode = crate::native::booted::native(vm, "Settings.getVideoMode")
 			.and_then(|f| f.call_ret::<SqStrongRef, _>(vm, ()).ok().flatten());
 		let dim = |name: &str| mode.as_ref().and_then(|m| m.get_member::<Number>(vm, name)).map(|n| n.0 as i32);
 		Screen {

@@ -1,7 +1,7 @@
 //! Loading a campaign save of the original's layout, as its `World.load` (`0x4f4ac0`)
 //! does (see [`super`] for the order).
 
-use squirrel::{SQVM, SqStrongRef, SqTable};
+use squirrel::SQVM;
 
 use super::super::{LoadCx, SaveCallback};
 use super::camera::{Camera, Clock};
@@ -13,8 +13,8 @@ use super::world::{OriginalWorld, Roster};
 /// The script file of class hash `hash` (`IO.scriptFilenameByHash`, as the original's
 /// load looks it up).
 fn script_path(vm: &SQVM, hash: i32) -> Result<String, String> {
-	let io = SqTable::root(vm).get::<SqStrongRef>("IO").ok_or("IO missing")?;
-	io.call_method_ret::<String, _>(vm, "scriptFilenameByHash", (i64::from(hash),))?
+	let by_hash = crate::native::booted::native(vm, "IO.scriptFilenameByHash").ok_or("IO.scriptFilenameByHash missing")?;
+	by_hash.call_ret::<String, _>(vm, (i64::from(hash),))?
 		.ok_or_else(|| format!("the save names a script that doesn't exist (class hash {hash})"))
 }
 

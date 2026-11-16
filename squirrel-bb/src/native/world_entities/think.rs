@@ -22,7 +22,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use squirrel::{Number, SQVM, SqStrongRef, SqTable};
+use squirrel::{Number, SQVM, SqStrongRef};
 
 use super::{EntityMachine, ignore_missing};
 use crate::native::world_query;
@@ -106,8 +106,8 @@ pub(super) fn entity_methods(m: &Machine, vm: &mut SQVM) -> Vec<(&'static str, S
 
 /// Read a number from a script-side getter, e.g. `Time.getVirtualTimeF()`.
 fn script_number(vm: &SQVM, table: &str, getter: &str) -> Result<f64, String> {
-	let t = SqTable::root(vm).get::<SqStrongRef>(table).ok_or_else(|| format!("{table} missing"))?;
-	Ok(t.call_method_ret::<Number, _>(vm, getter, ())?.map_or(0.0, |n| n.0))
+	let f = crate::native::booted::native(vm, &format!("{table}.{getter}")).ok_or_else(|| format!("{table}.{getter} missing"))?;
+	Ok(f.call_ret::<Number, _>(vm, ())?.map_or(0.0, |n| n.0))
 }
 
 /// One think pass (see the module docs). No machine borrow is held while scripts run.

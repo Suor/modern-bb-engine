@@ -215,7 +215,7 @@ fn save_campaign(inner: &Inner, classes: &StreamClasses, vm: &SQVM, file: String
 
 /// Log `message` as the scripts' `logWarning` does.
 fn warn(vm: &SQVM, message: &str) {
-	if let Some(log) = SqTable::root(vm).get::<SqStrongRef>("logWarning") {
+	if let Some(log) = super::booted::native(vm, "logWarning") {
 		let _ = log.call(vm, (message.to_string(),));
 	}
 }
@@ -310,8 +310,8 @@ impl SaveSystem {
 		let inner = self.inner.clone();
 		move |vm: &SQVM| {
 			if inner.presave_pending.get() {
-				let world = SqTable::root(vm).get::<SqStrongRef>("World").ok_or("World missing")?;
-				if world.call_method_ret::<bool, _>(vm, "isVisible", ())?.unwrap_or(true) {
+				let is_visible = super::booted::native(vm, "World.isVisible").ok_or("World.isVisible missing")?;
+				if is_visible.call_ret::<bool, _>(vm, ())?.unwrap_or(true) {
 					inner.presave_pending.set(false);
 				}
 			}

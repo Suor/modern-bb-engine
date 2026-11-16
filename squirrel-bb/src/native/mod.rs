@@ -14,6 +14,7 @@
 
 pub(crate) mod audio;
 pub(crate) mod battle_effects;
+pub(crate) mod booted;
 mod brushes;
 pub(crate) mod camera_callbacks;
 pub(crate) mod camera_motion;

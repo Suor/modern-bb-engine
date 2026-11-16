@@ -16,7 +16,7 @@
 //! original does, or one phase a call, which keeps the order of every script call and
 //! paces a battle the same at any frame rate.
 
-use squirrel::{Number, SQVM, SqStrongRef, SqTable};
+use squirrel::{Number, SQVM, SqStrongRef};
 
 /// How a unit's move in a battle is paced.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -118,9 +118,7 @@ impl Hop {
 
 /// `Time.getVirtualTimeF()`: the hop's clock.
 pub(super) fn virtual_now(vm: &SQVM) -> f32 {
-	SqTable::root(vm)
-		.get::<SqTable>("Time")
-		.and_then(|t| t.get::<SqStrongRef>("getVirtualTimeF"))
+	crate::native::booted::native(vm, "Time.getVirtualTimeF")
 		.and_then(|f| f.call_ret::<Number, _>(vm, ()).ok().flatten())
 		.map_or(0.0, |n| n.0 as f32)
 }
@@ -131,9 +129,7 @@ pub(super) fn virtual_now(vm: &SQVM) -> f32 {
 pub(super) fn faster(vm: &SQVM, faction: i64) -> bool {
 	let name = if faction == 1 { "FasterPlayerMovement" } else { "FasterAIMovement" };
 	let set_in = |getter: &str| {
-		SqTable::root(vm)
-			.get::<SqTable>("Settings")
-			.and_then(|s| s.get::<SqStrongRef>(getter))
+		crate::native::booted::native(vm, &format!("Settings.{getter}"))
 			.and_then(|f| f.call_ret::<SqStrongRef, _>(vm, ()).ok().flatten())
 			.and_then(|t| t.get_member::<bool>(vm, name))
 			.unwrap_or(false)

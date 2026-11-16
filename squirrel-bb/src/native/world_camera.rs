@@ -16,7 +16,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use squirrel::{ClassBuilder, Number, Retained, SQVM, SqClass, SqStrongRef, SqTable, This, Variadic};
+use squirrel::{ClassBuilder, Number, Retained, SQVM, SqClass, SqStrongRef, This, Variadic};
 
 use super::camera_callbacks::{self, MovementCallbacks};
 use super::camera_overlays::EntityOverlays;
@@ -72,7 +72,7 @@ pub(crate) type WorldCameraCallbacks = Rc<RefCell<MovementCallbacks>>;
 
 /// `createVec(x, y)`.
 fn vec(vm: &SQVM, (x, y): (f32, f32)) -> Result<SqStrongRef, String> {
-	let create_vec = SqTable::root(vm).get::<SqStrongRef>("createVec").ok_or("createVec missing")?;
+	let create_vec = super::booted::native(vm, "createVec").ok_or("createVec missing")?;
 	create_vec.call_ret::<SqStrongRef, _>(vm, (f64::from(x), f64::from(y)))?.ok_or_else(|| "createVec returned null".into())
 }
 
@@ -248,8 +248,8 @@ pub(crate) fn instance(vm: &mut SQVM) -> (SqStrongRef, WorldCamera, WorldCameraC
 pub(crate) fn screen_to_tile(vm: &SQVM, camera: &WorldCamera, x: i32, y: i32) -> Result<Option<SqStrongRef>, String> {
 	let view = view(camera);
 	let at = vec(vm, Screen::of(vm).to_world(view.pos, view.zoom, x, y))?;
-	let world = SqTable::root(vm).get::<SqStrongRef>("World").ok_or("World missing")?;
-	world.call_method_ret::<SqStrongRef, _>(vm, "worldToTile", (at,))
+	let world_to_tile = super::booted::native(vm, "World.worldToTile").ok_or("World.worldToTile missing")?;
+	world_to_tile.call_ret::<SqStrongRef, _>(vm, (at,))
 }
 
 #[cfg(test)]

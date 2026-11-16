@@ -18,7 +18,7 @@
 //! from `getBestLevelForTile` as the action moves, and the battle starts with
 //! `setLevelToHighestOnMap`; both are the original's, disassembled.
 
-use squirrel::{ClassBuilder, Native, Number, Retained, SQVM, SqClass, SqStrongRef, SqTable, Variadic};
+use squirrel::{ClassBuilder, Native, Number, Retained, SQVM, SqClass, SqStrongRef, Variadic};
 
 use super::{Grid, TacticalGridState, TileHandle};
 use crate::native::camera_callbacks::MovementCallbacks;
@@ -253,9 +253,7 @@ impl TacticalGridState {
 /// Whether the player lets the camera follow height (`AdjustCameraLevel`); without it
 /// `getBestLevelForTile` keeps the current level.
 fn adjusts_level(vm: &SQVM) -> bool {
-	SqTable::root(vm)
-		.get::<SqTable>("Settings")
-		.and_then(|s| s.get::<SqStrongRef>("getGameplaySettings"))
+	crate::native::booted::native(vm, "Settings.getGameplaySettings")
 		.and_then(|f| f.call_ret::<SqStrongRef, _>(vm, ()).ok().flatten())
 		.and_then(|t| t.as_table(vm))
 		.and_then(|t| t.get::<bool>("AdjustCameraLevel"))

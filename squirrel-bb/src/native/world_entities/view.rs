@@ -10,7 +10,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use squirrel::{Number, Retained, SQVM, SqStrongRef, SqTable};
+use squirrel::{Number, Retained, SQVM, SqStrongRef};
 
 use super::{EntityMachine, ignore_missing, vec_xy};
 use crate::native::overload::single_overload;
@@ -252,8 +252,7 @@ pub(super) fn world_methods(m: &Machine, vm: &mut SQVM) -> Vec<(String, SqStrong
 		let m = m.clone();
 		vm.make_closure(move |vm: &SQVM| -> Option<SqStrongRef> {
 			let (x, y) = m.borrow().player_view.pos;
-			SqTable::root(vm)
-				.get::<SqStrongRef>("createVec")
+			crate::native::booted::native(vm, "createVec")
 				.and_then(|create| create.call_ret::<SqStrongRef, _>(vm, (x as f32 as f64, y as f32 as f64)).ok().flatten())
 		})
 	};

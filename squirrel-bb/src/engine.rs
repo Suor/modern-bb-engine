@@ -250,6 +250,7 @@ impl<S: ScriptSource + 'static> Engine<S> {
 			camera: natives.world_camera.clone(),
 		}));
 
+		crate::native::booted::keep(&vm);
 		Engine {
 			saves,
 			root_state,

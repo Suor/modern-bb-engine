@@ -8,7 +8,7 @@
 //!
 //! `varyRGB(rf, gf, bf)` randomly perturbs the color in place — see [`Color::vary`].
 
-use squirrel::{ClassBuilder, Number, SQVM, SqStrongRef, SqTable};
+use squirrel::{ClassBuilder, Number, SQVM, SqStrongRef};
 
 use super::prng::Prng;
 
@@ -98,7 +98,7 @@ pub(crate) fn color_argb(vm: &SQVM, value: &SqStrongRef) -> Option<u32> {
 
 /// A new `color` object for `argb`, made with the scripts' `createColor`.
 pub(crate) fn color_object(vm: &SQVM, argb: u32) -> Option<SqStrongRef> {
-	let create = SqTable::root(vm).get::<SqStrongRef>("createColor")?;
+	let create = super::booted::native(vm, "createColor")?;
 	let (a, rgb) = (argb >> 24, argb & 0x00ff_ffff);
 	create.call_ret::<SqStrongRef, _>(vm, (format!("{rgb:06x}{a:02x}"),)).ok().flatten()
 }

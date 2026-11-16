@@ -81,8 +81,8 @@ pub(crate) struct TacticalParts {
 /// The first and last tile centres of the battle map (`Tactical.getMapSize()`), or
 /// `None` without a map.
 fn battle_span(vm: &SQVM) -> Result<Option<MapSpan>, String> {
-	let tactical = SqTable::root(vm).get::<SqStrongRef>("Tactical").ok_or("Tactical missing")?;
-	let size = tactical.call_method_ret::<SqStrongRef, _>(vm, "getMapSize", ())?;
+	let get_map_size = super::booted::native(vm, "Tactical.getMapSize").ok_or("Tactical.getMapSize missing")?;
+	let size = get_map_size.call_ret::<SqStrongRef, _>(vm, ())?;
 	let dim = |axis: &str| size.as_ref().and_then(|s| s.get_member::<Number>(vm, axis)).map_or(0, |n| n.0 as i64);
 	let (w, h) = (dim("X"), dim("Y"));
 	if w <= 0 || h <= 0 {
@@ -124,9 +124,9 @@ pub(crate) fn install_effects(vm: &mut SQVM, parts: &TacticalParts) {
 		if let Some(inner) = &inner {
 			inner.call(vm, ())?;
 		}
-		let time = SqTable::root(vm).get::<SqStrongRef>("Time").ok_or("Time missing")?;
-		let delta = time.call_method_ret::<Number, _>(vm, "getDelta", ())?.map_or(0.0, |n| n.0);
-		let speed = time.call_method_ret::<Number, _>(vm, "getVirtualSpeed", ())?.map_or(1.0, |n| n.0);
+		let time = |name: &str| super::booted::native(vm, name).ok_or(format!("{name} missing"));
+		let delta = time("Time.getDelta")?.call_ret::<Number, _>(vm, ())?.map_or(0.0, |n| n.0);
+		let speed = time("Time.getVirtualSpeed")?.call_ret::<Number, _>(vm, ())?.map_or(1.0, |n| n.0);
 		clouds.borrow_mut().advance(delta as f32, speed as f32);
 		super::particles::advance_now(vm, &particles, delta as f32);
 		Ok(())

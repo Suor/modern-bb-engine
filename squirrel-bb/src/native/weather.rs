@@ -73,7 +73,7 @@ fn set_field(vm: &SQVM, t: &mut SqTable, name: &str, field: Field) {
 			}
 		}
 		Vector(x, y) => {
-			let v = SqTable::root(vm).get::<SqStrongRef>("createVec").and_then(|f| f.call_ret::<SqStrongRef, _>(vm, (x, y)).ok().flatten());
+			let v = super::booted::native(vm, "createVec").and_then(|f| f.call_ret::<SqStrongRef, _>(vm, (x, y)).ok().flatten());
 			if let Some(v) = v {
 				t.set(name, v);
 			}
@@ -91,14 +91,30 @@ const BUILDERS: &[&str] = &[
 	"clear",
 ];
 
+/// What the original's weather has in each scope.
+const WORLD: &[&str] = &["createCloudSettings", "createBirdSettings", "buildCloudCover", "buildBirds", "clear"];
+const TACTICAL: &[&str] = &[
+	"IsRaining",
+	"createCloudSettings",
+	"createRainSettings",
+	"buildCloudCover",
+	"buildRain",
+	"setAmbientLightingPreset",
+	"setAmbientLightingSaturation",
+	"setAmbientLightingColor",
+	"clear",
+];
+
 /// A fresh weather object for `scope` (`World` or `Tactical`; its stubs' names).
 pub(crate) fn weather(vm: &mut SQVM, scope: &str) -> SqStrongRef {
+	let has = if scope == "World" { WORLD } else { TACTICAL };
 	let creators: Vec<(&str, SqStrongRef)> = [
 		("createCloudSettings", CLOUD, &[][..]),
 		("createBirdSettings", BIRD, &[][..]),
 		("createRainSettings", RAIN, RAIN_METHODS),
 	]
 	.into_iter()
+	.filter(|(name, ..)| has.contains(name))
 	.map(|(name, fields, methods)| {
 		let stubs: Vec<(&str, SqStrongRef)> = methods
 			.iter()
@@ -119,9 +135,11 @@ pub(crate) fn weather(vm: &mut SQVM, scope: &str) -> SqStrongRef {
 	.collect();
 	// Each builder is a stub until a real one replaces it (`world`, `tactical`).
 	let builders: Vec<(&str, SqStrongRef)> =
-		BUILDERS.iter().map(|name| (*name, super::stubs::closure(vm, super::stubs::name(format!("{scope}.getWeather().{name}"))))).collect();
+		BUILDERS.iter().filter(|name| has.contains(name)).map(|name| (*name, super::stubs::closure(vm, super::stubs::name(format!("{scope}.getWeather().{name}"))))).collect();
 	let mut w = SqTable::new(vm);
-	w.set("IsRaining", false);
+	if has.contains(&"IsRaining") {
+		w.set("IsRaining", false);
+	}
 	for (name, create) in creators {
 		w.set(name, create);
 	}

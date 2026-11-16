@@ -8,7 +8,7 @@
 //! install starts from the values those globals have in the executable's data, which are
 //! [`GameSettings::FRESH_INSTALL`].
 
-use squirrel::{SQVM, SqStrongRef, SqTable};
+use squirrel::{SQVM, SqStrongRef};
 
 use super::super::video_mode::VideoMode;
 
@@ -91,10 +91,9 @@ impl Default for GameSettings {
 	}
 }
 
-/// The scripts' `Settings` table (a mod may have replaced its functions: the engine
-/// goes through them, as the scripts do).
+/// The `Settings` natives as booted: a mod's replacements aren't called, as in the original.
 fn settings(vm: &SQVM) -> Option<SqStrongRef> {
-	SqTable::root(vm).get::<SqStrongRef>("Settings")
+	crate::native::booted::native(vm, "Settings")
 }
 
 fn object(vm: &SQVM, settings: &SqStrongRef, getter: &str) -> Option<SqStrongRef> {

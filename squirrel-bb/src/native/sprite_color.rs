@@ -15,21 +15,19 @@
 //! its start value until a draw at or past the end commits the target and ends the
 //! fade (`IsFadingDone`). So a sprite that isn't drawn never finishes fading.
 
-use squirrel::{Number, SQVM, SqStrongRef, SqTable};
+use squirrel::{Number, SQVM};
 
 /// `Time.getRealTimeF()`: real seconds, the clock fades run on.
 pub(crate) fn real_time(vm: &SQVM) -> f32 {
-	SqTable::root(vm)
-		.get::<SqStrongRef>("Time")
-		.and_then(|t| t.call_method_ret::<Number, _>(vm, "getRealTimeF", ()).ok().flatten())
+	crate::native::booted::native(vm, "Time.getRealTimeF")
+		.and_then(|f| f.call_ret::<Number, _>(vm, ()).ok().flatten())
 		.map_or(0.0, |n| n.0 as f32)
 }
 
 /// `Time.getVirtualTimeF()`: virtual seconds, the clock effects and quakes run on.
 pub(crate) fn virtual_time(vm: &SQVM) -> f32 {
-	SqTable::root(vm)
-		.get::<SqStrongRef>("Time")
-		.and_then(|t| t.call_method_ret::<Number, _>(vm, "getVirtualTimeF", ()).ok().flatten())
+	crate::native::booted::native(vm, "Time.getVirtualTimeF")
+		.and_then(|f| f.call_ret::<Number, _>(vm, ()).ok().flatten())
 		.map_or(0.0, |n| n.0 as f32)
 }
 
