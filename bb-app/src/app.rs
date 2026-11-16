@@ -171,6 +171,8 @@ struct Running {
 	frame_cap_override: Option<i64>,
 	/// Whether the mouse moved since the last frame presented (see `bb_app::mouse_refresh`).
 	mouse_refresh: MouseRefresh,
+	/// The pointer entered the window in this batch of events (see `WindowEvent::CursorEntered`).
+	entered: bool,
 	/// The system said the window isn't shown (`WindowEvent::Occluded`).
 	occluded: bool,
 	/// With `BB_INPUT_LOG=1`, the wheel's events and the cursor shown are logged on
@@ -516,6 +518,7 @@ impl App {
 				.filter(|&(n, _)| n > 0),
 			frame_cap_override: std::env::var("BB_FRAME_CAP").ok().and_then(|v| v.parse().ok()).filter(|&n| n > 0),
 			mouse_refresh: MouseRefresh::default(),
+			entered: false,
 			occluded: false,
 			next_stats: std::env::var_os("BB_STATS").is_some_and(|v| v != "0").then(Instant::now),
 			stats_frames: (0, Duration::ZERO),
@@ -983,6 +986,7 @@ impl Running {
 
 	fn event(&mut self, event: &WindowEvent) -> Result<(), String> {
 		match event {
+			WindowEvent::CursorMoved { .. } if std::mem::take(&mut self.entered) => Ok(()),
 			WindowEvent::CursorMoved { position, .. } => self.mouse_at(position.x, position.y),
 			WindowEvent::Occluded(occluded) => {
 				self.occluded = *occluded;
@@ -1016,8 +1020,10 @@ impl Running {
 			// the page keeps the pointer where it last was, and its hover.
 			WindowEvent::CursorLeft { .. } => Ok(()),
 			// Another app's cursor may show as the pointer comes back (see
-			// `system_cursor::Shower::keep`).
+			// `system_cursor::Shower::keep`). Its position is no move: X11 sends it as the
+			// window maps under a pointer at rest, where the original's page gets none.
 			WindowEvent::CursorEntered { .. } => {
+				self.entered = true;
 				self.keep_cursor("the pointer entering");
 				Ok(())
 			}
@@ -1189,6 +1195,7 @@ impl ApplicationHandler for App {
 
 	fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
 		let Some(running) = &mut self.running else { return };
+		running.entered = false;
 		// The browser's work, when it asked for it (macOS: this thread is its UI thread),
 		// and the wait no later than its next.
 		running.game.front().pump();
