@@ -100,10 +100,10 @@ fn errors_in_callbacks_are_reported_and_the_native_goes_on() {
 		)
 		.unwrap();
 	frames(&engine, 30);
-	assert_eq!(eval(&engine, "::__out.w_query"), "returned null", "the query returns normally");
+	assert_eq!(eval(&engine, "::__out.w_query"), "returned (null : 0x00000000)", "the query returns normally");
 	assert_eq!(eval(&engine, "::__calls(\"w_query\")"), "18", "every tile of rings 1 and 2");
 	assert_eq!(reported(&log, "w_query"), 18, "each throw reported");
-	assert_eq!(eval(&engine, "::__out.w_query_arity"), "returned null");
+	assert_eq!(eval(&engine, "::__out.w_query_arity"), "returned (null : 0x00000000)");
 	assert_eq!(eval(&engine, "::__calls(\"w_query_arity\")"), "0", "never called");
 	assert_eq!(reported(&log, "w_query_arity"), 0);
 	assert_eq!(eval(&engine, "::__calls(\"w_real\") + \" \" + ::__calls(\"w_real_next\")"), "1 1", "the next event still runs");
@@ -145,9 +145,9 @@ fn errors_in_callbacks_are_reported_and_the_native_goes_on() {
 			"save and load",
 		)
 		.unwrap();
-	assert_eq!(eval(&engine, "::__out.save"), "returned null", "the save returns normally");
+	assert_eq!(eval(&engine, "::__out.save"), "returned (null : 0x00000000)", "the save returns normally");
 	assert_eq!(eval(&engine, "::__saved"), "true", "the save is written");
-	assert_eq!(eval(&engine, "::__out.load"), "returned null", "the load returns normally");
+	assert_eq!(eval(&engine, "::__out.load"), "returned (null : 0x00000000)", "the load returns normally");
 	for k in ["before_save", "save", "before_load", "load"] {
 		assert_eq!(eval(&engine, &format!("::__this(\"{k}\")")), "World", "{k}'s this");
 		assert_eq!(reported(&log, k), 1, "{k} reported");
@@ -229,7 +229,7 @@ fn errors_in_callbacks_are_reported_and_the_native_goes_on() {
 		)
 		.unwrap();
 	for k in ["t_query_tiles", "t_query_tiles8", "t_query_actors"] {
-		assert_eq!(eval(&engine, &format!("::__out.{k}")), "returned null", "{k} returns normally");
+		assert_eq!(eval(&engine, &format!("::__out.{k}")), "returned (null : 0x00000000)", "{k} returns normally");
 	}
 	assert_eq!(eval(&engine, "::__calls(\"t_query_tiles\")"), "18");
 	assert_eq!(eval(&engine, "::__calls(\"t_query_tiles8\")"), "18");
