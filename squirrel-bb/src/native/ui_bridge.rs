@@ -80,6 +80,8 @@ struct BridgeState {
 	/// Whether the cursor is over the UI rather than the game view, as the UI host last
 	/// hit-tested it. With no host the UI covers everything.
 	over_ui: bool,
+	/// What an error in a script callback answered within a call does.
+	script_errors: crate::ScriptErrors,
 }
 
 impl BridgeState {
@@ -94,6 +96,7 @@ impl BridgeState {
 			frontend: None,
 			cursor: (0, 0),
 			over_ui: true,
+			script_errors: crate::ScriptErrors::Fail,
 		}
 	}
 
@@ -160,6 +163,20 @@ impl Default for UiBridge {
 	}
 }
 
+/// One SQ→JS call: to the frontend, or into the log with the headless client's answer
+/// within the call ([`crate::ui_client::answer_inline`]).
+fn send(vm: &SQVM, h: &JsHandle, method: String, data: SqStrongRef, sync: bool) -> Result<(), String> {
+	let frontend = h.state.borrow_mut().call(h, method.clone(), data.clone(), sync);
+	let bridge = UiBridge { state: h.state.clone() };
+	match frontend {
+		Some(frontend) => {
+			frontend.call(vm, &bridge, &h.screen, h.module.as_deref(), &method, &data);
+			Ok(())
+		}
+		None => crate::ui_client::answer_inline(vm, &bridge, &h.screen, h.module.as_deref(), &method),
+	}
+}
+
 /// Drop `h`'s connection and tell the UI host (`JSHandle.disconnect`, `0x56b290`).
 fn disconnect_handle(vm: &SQVM, h: &JsHandle) {
 	let frontend = {
@@ -191,32 +208,10 @@ impl UiBridge {
 		let class = ClassBuilder::<JsHandle>::new("JSHandle")
 			.method(
 				"asyncCall",
-				|h: &mut JsHandle, vm: &SQVM, method: String, data: Retained| {
-					let frontend =
-						h.state
-							.borrow_mut()
-							.call(h, method.clone(), data.0.clone(), false);
-					if let Some(frontend) = frontend {
-						let bridge = UiBridge { state: h.state.clone() };
-						frontend.call(vm, &bridge, &h.screen, h.module.as_deref(), &method, &data.0);
-					}
-				},
+				|h: &mut JsHandle, vm: &SQVM, method: String, data: Retained| send(vm, h, method, data.0, false),
 			)
-			.method(
-				"call",
-				|h: &mut JsHandle, vm: &SQVM, method: String, data: Retained| {
-					// The same native as `asyncCall` in the original; the log keeps which
-					// one a script used.
-					let frontend =
-						h.state
-							.borrow_mut()
-							.call(h, method.clone(), data.0.clone(), true);
-					if let Some(frontend) = frontend {
-						let bridge = UiBridge { state: h.state.clone() };
-						frontend.call(vm, &bridge, &h.screen, h.module.as_deref(), &method, &data.0);
-					}
-				},
-			)
+			// The same native as `asyncCall` in the original; the log keeps which one a script used.
+			.method("call", |h: &mut JsHandle, vm: &SQVM, method: String, data: Retained| send(vm, h, method, data.0, true))
 			.method("disconnect", |h: &mut JsHandle, vm: &SQVM| disconnect_handle(vm, h))
 			.method(
 				"connectToModule",
@@ -352,6 +347,15 @@ impl UiBridge {
 	/// The cursor's screen position, as last set.
 	pub fn cursor(&self) -> (i64, i64) {
 		self.state.borrow().cursor
+	}
+
+	/// What an error in a script callback answered within a call does from now on.
+	pub fn set_script_errors(&self, policy: crate::ScriptErrors) {
+		self.state.borrow_mut().script_errors = policy;
+	}
+
+	pub(crate) fn script_errors(&self) -> crate::ScriptErrors {
+		self.state.borrow().script_errors
 	}
 
 	/// Send every SQ→JS call to `frontend` from now on (instead of the call log).

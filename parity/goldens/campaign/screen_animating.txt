@@ -1,0 +1,5 @@
+# captured 2026-11-17 from Battle Brothers 1.5.2.3 (vanilla + zzz_bbtales_runner.zip)
+PROBE relations show right after = string animating true visible false
+PROBE relations show then = string animating true visible false, animating false visible true
+PROBE relations hide right after = string animating true visible true
+PROBE relations hide then = string animating true visible true, animating false visible false

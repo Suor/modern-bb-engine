@@ -547,6 +547,7 @@ impl<S: ScriptSource + 'static> Engine<S> {
 		self.root_state.set_script_errors(policy);
 		self.modules.set_script_errors(policy);
 		self.tactical_navigator.set_script_errors(policy);
+		self.ui.set_script_errors(policy);
 		self.ui_client.borrow_mut().set_script_errors(policy);
 	}
 

@@ -5,10 +5,11 @@
 //! The vanilla JS screens and modules all follow one pattern:
 //!
 //! * when a screen connects, the JS calls `onScreenConnected`;
-//! * `show` and `hide` animate, then report `onScreenShown` / `onScreenHidden` (a module
-//!   reports `onModuleShown` / `onModuleHidden`).
+//! * a screen's `show` and `hide` report `onScreenAnimating` within the call, then, once
+//!   animated, `onScreenShown` / `onScreenHidden` (a module reports `onModuleShown` /
+//!   `onModuleHidden`).
 //!
-//! Headless there is no animation, so each callback follows on the next pump. Modules
+//! Headless there is no animation, so the callbacks after one follow on the next pump. Modules
 //! with more behaviour than that get their own emulation ([`turn_sequence_bar`]), and so
 //! do Modern Hooks' loader handshake ([`modern_hooks`]) and mods' late JS
 //! ([`late_js`]). A real browser host replaces this module.
@@ -30,6 +31,18 @@ fn notify(vm: &SQVM, receiver: &SqStrongRef, method: &str) -> Result<(), String>
 		Err(e) => Err(format!("{method}: {e}")),
 		ok => ok,
 	}
+}
+
+/// What a screen's JS answers within the call itself ([`UiBridge`] calls it, headless): `show`
+/// and `hide` start its animation and report `onScreenAnimating` before returning (parity
+/// probe `campaign/screen_animating`).
+pub(crate) fn answer_inline(vm: &SQVM, bridge: &UiBridge, screen: &str, module: Option<&str>, method: &str) -> Result<(), String> {
+	if module.is_some() || !matches!(method, "show" | "hide") {
+		return Ok(());
+	}
+	let Some(receiver) = bridge.receiver(screen, None) else { return Ok(()) };
+	let animating = notify(vm, &receiver, "onScreenAnimating").map_err(|e| format!("{screen}.{e}"));
+	bridge.script_errors().settle(animating)
 }
 
 /// The headless browser side: per-module state that outlives a pump.
