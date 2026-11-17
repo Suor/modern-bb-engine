@@ -235,6 +235,11 @@ fn advance(nav: &Rc<RefCell<NavState>>, vm: &SQVM, identity: i64) -> Result<(), 
 	if done {
 		return Ok(());
 	}
+	// Past lift-off it holds `dest`; one taken off the map in the air (killed) crashes the original.
+	if phase != Phase::LiftOff && units.info(identity).and_then(|u| u.tile).is_none() {
+		nav.borrow_mut().teleports.retain(|t| t.identity != identity);
+		return Err("a unit left the map while teleporting (the original crashes here)".to_string());
+	}
 	let with = |f: &mut dyn FnMut(&mut Teleport)| {
 		if let Some(t) = nav.borrow_mut().teleports.iter_mut().find(|t| t.identity == identity) {
 			f(t);

@@ -198,3 +198,22 @@ fn teleport_hands_on_done_the_unit_and_tag_in_and_out_of_sight() {
 	assert_eq!(answer, "true");
 	assert_eq!(log, "finish a; cbVar a tag");
 }
+
+/// A unit killed in the air never lands: the original crashes at `Tactical.update()`
+/// (probed 2026-11-17), ours raises an error there.
+#[test]
+fn teleport_of_a_unit_killed_in_the_air_is_an_error() {
+	let Some(engine) = battle() else { return };
+	engine.run_script("::__place(::__e[0], ::__seen[0]);", "seen").unwrap();
+	let started = player::eval_string(&engine, "\"\" + ::Tactical.getNavigator().teleport(::__e[0], ::__seen[1], null, null, false, 1.0)").unwrap();
+	assert_eq!(started.as_deref(), Some("true"));
+	for _ in 0..600 {
+		if player::eval_i64(&engine, "::__e[0].getTile().isSameTileAs(::__seen[1]) ? 1 : 0").unwrap() == Some(1) {
+			break;
+		}
+		harness::run_frame(&engine, 1000.0 / 60.0).unwrap();
+	}
+	let update = "(function() { ::__e[0].kill(); try { ::Tactical.update(); return \"updated\"; } catch (e) { return e; } })()";
+	assert_eq!(player::eval_string(&engine, update).unwrap().as_deref(), Some("a unit left the map while teleporting (the original crashes here)"));
+	assert_eq!(player::eval_i64(&engine, "::Tactical.getNavigator().IsTravelling ? 1 : 0").unwrap(), Some(0), "no longer in flight");
+}

@@ -24,6 +24,7 @@ No mod can rely on the original's behaviour in these cases.
 | A sound file that doesn't exist | A critical error, and the game stops running | Logged, and nothing plays | Only broken mods |
 | `Music.isPlaying()` before any music has started | Crashes | Returns false | Only mods that ask that early |
 | `Time.clearEvents()` called from a scheduled event | Crashes (also a load started from one) | Raises a script error and clears nothing | Only mods that crash the original |
+| A unit killed while it teleports in the player's view | Crashes at its next `Tactical.update()` | Raises a script error there, the unit never lands | Only mods that crash the original |
 | `Tactical.getTileSquare` off the battle map | Crashes; vanilla's road builder can reach it (rarely) | Gives the nearest tile on the map and logs a warning | No |
 | Reading a world tile's `Properties`, a brush's `ID` | Crashes | Raises a script error ("does not exist") | Only mods that crash the original |
 | A brush object used after its sprite is gone | Crashes | Still holds its `Name` and `TextureName` | Only mods that crash the original |
