@@ -1,6 +1,6 @@
 //! bbtales's page natives in the windowed game (`bbtales.py --env ui --show`), as its headless
-//! `bbtales_ui` has them, when `BB_TALES_SHOTS=<dir>` is set: `::BBTales_js(code)` (the page's
-//! value of `code` as `{v = value}`; a JS exception raises) and `::BBTales_shot(name)` (a PNG of
+//! `bbtales_ui` has them, when `BB_TALES_SHOTS=<dir>` is set: `::__Tales.js(code)` (the page's
+//! value of `code` as `{v = value}`; a JS exception raises) and `::__Tales.shot(name)` (a PNG of
 //! the window's last frame drawn, the page over the map, `<dir>/<name>.png`).
 
 use std::cell::RefCell;
@@ -22,20 +22,33 @@ pub fn register(session: &mut Box<UiSession>, gpu: &Gpu, frame: LastFrame) {
 	// this thread, inside its scripts.
 	let session_ref = move || unsafe { &*at };
 	let vm = session.engine_mut().vm_mut();
-	vm.register("BBTales_js", move |vm: &SQVM, code: String| -> Result<SqStrongRef, String> {
+	let js = vm.make_closure(move |vm: &SQVM, code: String| -> Result<SqStrongRef, String> {
 		let value = session_ref().eval(&code)?;
 		let mut result = SqTable::new(vm);
 		result.set("v", to_sq(vm, &value));
 		Ok(result.to_strong())
 	});
 	let (device, queue) = (gpu.device.clone(), gpu.queue.clone());
-	vm.register("BBTales_shot", move |name: String| -> Result<String, String> {
+	let shot = vm.make_closure(move |name: String| -> Result<String, String> {
 		let texture = frame.borrow().clone().ok_or("no frame drawn yet")?;
 		let image = bb_render::read_level_on(&device, &queue, &texture, 0)?;
 		let path = shots.join(format!("{name}.png"));
 		bb_render::save_png(&path, &image).map_err(|e| format!("{}: {e}", path.display()))?;
 		Ok(path.to_string_lossy().into_owned())
 	});
+	let mut tales = tales_table(vm);
+	tales.set("js", js);
+	tales.set("shot", shot);
+}
+
+/// bbtales' internals, `::__Tales`: made here when the natives come first, its scripts fill in the rest.
+fn tales_table(vm: &SQVM) -> SqTable<'_> {
+	let mut root = SqTable::root(vm);
+	if let Some(t) = root.get::<SqTable>("__Tales") {
+		return t;
+	}
+	root.set("__Tales", SqTable::new(vm));
+	root.get::<SqTable>("__Tales").expect("just set")
 }
 
 /// A JS value as Squirrel's: numbers keep their fractions (unlike the bridge's `from_json`).
