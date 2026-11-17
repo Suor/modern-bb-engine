@@ -29,6 +29,7 @@ pub struct Front {
 	loading_procedural: Vec<bb_ui::host::ProceduralRequest>,
 	/// The update check and its notice on the main menu, if the boot asked for them.
 	update: Option<super::update_notice::UpdateNotice>,
+	last_frame: super::tales::LastFrame,
 }
 
 impl Front {
@@ -65,7 +66,8 @@ impl Front {
 		};
 		// The page opens and loads while the scripts' preload runs (`boot_menu`).
 		let mut session = Box::new(UiSession::open(boot.data_dir, config, Echo::Problems).map_err(crate::requirements::page_error)?);
-		super::tales::register(&mut session, page.clone());
+		let last_frame = super::tales::LastFrame::default();
+		super::tales::register(&mut session, gpu, last_frame.clone());
 		// Before the scripts boot to the menu.
 		boot.store.attach(session.engine());
 		// The page's links (`openURL`: mods' pages, the version label) open in the
@@ -121,6 +123,7 @@ impl Front {
 			profiling: crate::script_profile::ScriptProfiling::from_env(&archives),
 			loading_procedural: Vec::new(),
 			update,
+			last_frame,
 		})
 	}
 
@@ -354,6 +357,7 @@ impl Front {
 		let draw = span("ui layer draw");
 		self.layer.draw(gpu, target);
 		drop(draw);
+		*self.last_frame.borrow_mut() = Some(target.texture.clone());
 		// The page's next frame, painted by the next game frame's draw (bb-ui's
 		// `PageFrames::Game`).
 		let _begin = span("page begin frame");

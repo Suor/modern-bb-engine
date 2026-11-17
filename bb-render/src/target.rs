@@ -82,18 +82,22 @@ impl RenderTarget {
 
 /// Mip level `level` of the RGBA8 `texture`, read back.
 pub(crate) fn read_level(gpu: &Gpu, texture: &wgpu::Texture, level: u32) -> Result<Image, String> {
+	read_level_on(&gpu.device, &gpu.queue, texture, level)
+}
+
+/// [`read_level`] with the device and queue alone, for holders of no [`Gpu`].
+pub fn read_level_on(device: &wgpu::Device, queue: &wgpu::Queue, texture: &wgpu::Texture, level: u32) -> Result<Image, String> {
 	let size = texture.size();
 	let (width, height) = ((size.width >> level).max(1), (size.height >> level).max(1));
 	let row = width * 4;
 	let padded_row = row.div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT) * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
-	let buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
+	let buffer = device.create_buffer(&wgpu::BufferDescriptor {
 		label: Some("readback"),
 		size: u64::from(padded_row) * u64::from(height),
 		usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
 		mapped_at_creation: false,
 	});
-	let mut encoder = gpu
-		.device
+	let mut encoder = device
 		.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
 	encoder.copy_texture_to_buffer(
 		wgpu::TexelCopyTextureInfo {
@@ -116,13 +120,13 @@ pub(crate) fn read_level(gpu: &Gpu, texture: &wgpu::Texture, level: u32) -> Resu
 			depth_or_array_layers: 1,
 		},
 	);
-	gpu.queue.submit([encoder.finish()]);
+	queue.submit([encoder.finish()]);
 
 	let (sender, receiver) = channel();
 	buffer.map_async(wgpu::MapMode::Read, .., move |result| {
 		let _ = sender.send(result);
 	});
-	gpu.wait()?;
+	device.poll(wgpu::PollType::wait_indefinitely()).map_err(|e| e.to_string())?;
 	receiver
 		.recv()
 		.map_err(|e| e.to_string())?

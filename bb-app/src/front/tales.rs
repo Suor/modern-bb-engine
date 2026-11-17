@@ -1,16 +1,21 @@
 //! bbtales's page natives in the windowed game (`bbtales.py --env ui --show`), as its headless
 //! `bbtales_ui` has them, when `BB_TALES_SHOTS=<dir>` is set: `::BBTales_js(code)` (the page's
 //! value of `code` as `{v = value}`; a JS exception raises) and `::BBTales_shot(name)` (a PNG of
-//! the page as last painted, `<dir>/<name>.png`).
+//! the window's last frame drawn, the page over the map, `<dir>/<name>.png`).
 
+use std::cell::RefCell;
 use std::path::PathBuf;
+use std::rc::Rc;
 
-use bb_render::{UiPage, UiRegion};
+use bb_render::Gpu;
 use bb_ui::host::UiSession;
 use bb_ui::json::Json;
 use squirrel::{SQVM, SqArray, SqRef, SqStrongRef, SqTable};
 
-pub fn register(session: &mut Box<UiSession>, page: UiPage) {
+/// The texture of the last frame drawn (see `Front::draw`).
+pub type LastFrame = Rc<RefCell<Option<wgpu::Texture>>>;
+
+pub fn register(session: &mut Box<UiSession>, gpu: &Gpu, frame: LastFrame) {
 	let Some(shots) = std::env::var_os("BB_TALES_SHOTS").map(PathBuf::from) else { return };
 	let at: *const UiSession = &**session;
 	// SAFETY: the session is boxed and owns the VM: the natives can't outlive it, and run on
@@ -23,12 +28,12 @@ pub fn register(session: &mut Box<UiSession>, page: UiPage) {
 		result.set("v", to_sq(vm, &value));
 		Ok(result.to_strong())
 	});
+	let (device, queue) = (gpu.device.clone(), gpu.queue.clone());
 	vm.register("BBTales_shot", move |name: String| -> Result<String, String> {
-		let all = UiRegion { x: 0, y: 0, width: u32::MAX, height: u32::MAX };
-		let (region, bgra) = page.read(all)?.ok_or("the page never painted")?;
+		let texture = frame.borrow().clone().ok_or("no frame drawn yet")?;
+		let image = bb_render::read_level_on(&device, &queue, &texture, 0)?;
 		let path = shots.join(format!("{name}.png"));
-		let mut file = std::fs::File::create(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-		bb_ui::png::write_bgra(&mut file, region.width, region.height, &bgra).map_err(|e| e.to_string())?;
+		bb_render::save_png(&path, &image).map_err(|e| format!("{}: {e}", path.display()))?;
 		Ok(path.to_string_lossy().into_owned())
 	});
 }

@@ -63,7 +63,7 @@ pub use memory::{PageMemory, RendererMemory, ResidencyDetail, TextureDrawn, Text
 pub use usage::AtlasUse;
 pub use present::Presenter;
 pub use screenshot::{save_png, write_png};
-pub use target::{RenderTarget, TARGET_FORMAT};
+pub use target::{RenderTarget, TARGET_FORMAT, read_level_on};
 pub use bb_assets::mips::mip_chain;
 pub use texture::{GpuTexture, TEXTURE_FORMAT};
 pub use ui_layer::UiLayer;
